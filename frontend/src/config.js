@@ -1,2 +1,2 @@
 // Core Configuration
-export const API_BASE = "http://127.0.0.1:8002/api";
+export const API_BASE = "https://docai-backend-xd4x.onrender.com/api";
