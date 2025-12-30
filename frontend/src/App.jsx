@@ -143,6 +143,15 @@ function App() {
           patientName={currentProfile.name}
           initialMessage={initialSymptom}
           onEndSession={() => handleNavigate('summary')}
+          onEmergency={() => {
+            setTriageResult({
+              is_emergency: true,
+              matched_condition: "Critical Symptom Detected in Chat",
+              action: "Immediate Medical Attention",
+              reason: "Patient reported critical symptoms (e.g., Chest Pain) during the AI consultation."
+            });
+            handleNavigate('triage');
+          }}
         />
       )}
 

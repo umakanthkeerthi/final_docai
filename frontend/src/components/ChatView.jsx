@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { API_BASE } from '../config';
 
-export default function ChatView({ initialMessage, onEndSession, patientName }) {
+export default function ChatView({ initialMessage, onEndSession, patientName, onEmergency }) {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -61,6 +61,13 @@ export default function ChatView({ initialMessage, onEndSession, patientName }) 
                     timestamp: Date.now()
                 }];
             });
+
+            // CHECK FOR EMERGENCY REDIRECT
+            if (data.reply.includes("EMERGENCY DETECTED")) {
+                setTimeout(() => {
+                    if (onEmergency) onEmergency();
+                }, 1500); // Wait 1.5s so user sees the message first
+            }
 
         } catch (e) {
             console.error("ChatView: API Failed", e);
