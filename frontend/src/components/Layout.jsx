@@ -46,42 +46,30 @@ export default function Layout({ children, currentView, onViewChange, userProfil
                 </nav>
 
                 {userProfile && (
-                    <div className="profile-container" style={{ position: 'relative' }} ref={profileRef}>
+                    <div className="profile-container" style={{ marginLeft: 'auto', position: 'relative' }} ref={profileRef}>
                         <div
                             className="profile-trigger"
                             onClick={() => setShowProfileMenu(!showProfileMenu)}
                             style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 10,
-                                background: 'rgba(255,255,255,0.15)',
-                                padding: '6px 12px',
-                                borderRadius: 30,
-                                cursor: 'pointer',
-                                transition: 'background 0.2s',
-                                border: '1px solid rgba(255,255,255,0.1)'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.25)'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
-                        >
-                            <div style={{
-                                width: 28,
-                                height: 28,
+                                width: 40,
+                                height: 40,
                                 borderRadius: '50%',
-                                background: 'white',
-                                color: 'var(--primary-teal)',
+                                background: 'var(--primary-teal)',
+                                color: 'white',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontWeight: 'bold',
-                                fontSize: 14
-                            }}>
-                                {userProfile.name[0]}
-                            </div>
-                            <span style={{ color: 'white', fontWeight: 500, fontSize: 14 }}>{userProfile.name.split(' ')[0]}</span>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
-                                <polyline points="6 9 12 15 18 9"></polyline>
-                            </svg>
+                                fontSize: 18,
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                                transition: 'transform 0.2s',
+                                border: '2px solid white' // Optional ring for contrast
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        >
+                            {userProfile.name[0]}
                         </div>
 
                         {showProfileMenu && (
