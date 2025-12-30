@@ -85,7 +85,7 @@ def extract_text_from_image(image_bytes):
             print("☁️ [Rx Analyzer] Using cloud vision API...")
             
             completion = client.chat.completions.create(
-                model="llama-3.2-90b-vision-preview",
+                model="llava-v1.5-7b-4096-preview",
                 messages=[
                     {
                         "role": "user",
