@@ -176,6 +176,21 @@ def identify_data_gaps(fact_block, guideline_context):
 def get_medical_response(user_query: str, session_id: str, chat_history: List[dict] = []):
     """
     Orchestrates the 2-Hop RAG flow (Diagnosis -> Guideline):
+    """
+    # --- SAFETY CHECK ---
+    text_lower = user_query.lower()
+    critical_keywords = [
+        "chest pain", "heart attack", "can't breathe", "breathless", 
+        "stroke", "numbness", "unconscious", "head injury", "bleeding"
+    ]
+    
+    if any(kw in text_lower for kw in critical_keywords):
+        return {
+            "answer": "🚨 **EMERGENCY DETECTED** 🚨\n\nI detected symptoms that require IMMEDIATE medical attention.\n\nPlease go to the **Emergency Triage** view or call emergency services immediately.",
+            "sources": [],
+            "is_final": True
+        }
+    """
     1. Retrieve Patient State
     2. Update Memory
     3. HOP 1: Diagnostic Search (Find potential causes)
