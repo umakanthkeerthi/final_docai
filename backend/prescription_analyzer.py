@@ -50,37 +50,70 @@ def preprocess_image(image):
 
 def extract_text_from_image(image_bytes):
     """
-    Extract text from image using Tesseract OCR
+    Extract text from image using Tesseract OCR (local) or Groq Vision API (cloud)
     """
-    # Check if Tesseract is available
-    if not os.path.exists(TESSERACT_PATH):
-        raise Exception(
-            "Tesseract OCR is not installed. "
-            "Please install it from: https://github.com/UB-Mannheim/tesseract/wiki "
-            "Default installation path should be: C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
-        )
+    # Check if Tesseract is available (for local development)
+    tesseract_available = os.path.exists(TESSERACT_PATH)
     
-    try:
-        # Load image
-        image = Image.open(io.BytesIO(image_bytes))
-        
-        # Preprocess
-        processed_image = preprocess_image(image)
-        
-        # Extract text
-        raw_text = pytesseract.image_to_string(processed_image)
-        
-        print(f"📄 [Rx Analyzer] Extracted {len(raw_text)} characters")
-        return raw_text
-        
-    except pytesseract.TesseractNotFoundError:
-        raise Exception(
-            "Tesseract executable not found. "
-            "Please install Tesseract OCR from: https://github.com/UB-Mannheim/tesseract/wiki"
-        )
-    except Exception as e:
-        print(f"❌ [Rx Analyzer] OCR Error: {e}")
-        raise
+    if tesseract_available:
+        try:
+            # Load image
+            image = Image.open(io.BytesIO(image_bytes))
+            
+            # Preprocess
+            processed_image = preprocess_image(image)
+            
+            # Extract text with Tesseract
+            raw_text = pytesseract.image_to_string(processed_image)
+            
+            print(f"📄 [Rx Analyzer] Tesseract extracted {len(raw_text)} characters")
+            return raw_text
+            
+        except Exception as e:
+            print(f"⚠️ [Rx Analyzer] Tesseract failed: {e}, falling back to cloud OCR")
+            tesseract_available = False
+    
+    # Fallback to cloud-based vision (for production/Render)
+    if not tesseract_available:
+        try:
+            import base64
+            
+            # Convert image to base64
+            image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+            
+            # Use Groq's vision model to extract text
+            print("☁️ [Rx Analyzer] Using cloud vision API...")
+            
+            completion = client.chat.completions.create(
+                model="llama-3.2-90b-vision-preview",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Extract ALL text from this prescription image. Return only the raw text, exactly as it appears. Include doctor name, patient details, medicines, dosages, and all other text."
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{image_base64}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                temperature=0,
+                max_tokens=2000
+            )
+            
+            raw_text = completion.choices[0].message.content
+            print(f"📄 [Rx Analyzer] Cloud vision extracted {len(raw_text)} characters")
+            return raw_text
+            
+        except Exception as e:
+            print(f"❌ [Rx Analyzer] Cloud OCR Error: {e}")
+            raise Exception(f"Failed to extract text from image: {str(e)}")
 
 
 def analyze_prescription(image_bytes):
