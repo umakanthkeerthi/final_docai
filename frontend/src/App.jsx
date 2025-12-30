@@ -20,10 +20,11 @@ import ProfileSelector from './components/ProfileSelector'
 
 function App() {
   // --- APP STATE ---
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(true); // Skip Splash
+  // MOCK USER FOR UI TESTING
   const [user, setUser] = useState(null);
   const [currentProfile, setCurrentProfile] = useState(null);
-  const [view, setView] = useState('home');
+  const [view, setView] = useState('home'); // Start in Chat
   const [triageResult, setTriageResult] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [initialSymptom, setInitialSymptom] = useState('');
@@ -118,7 +119,7 @@ function App() {
   }
 
   return (
-    <Layout currentView={view} onViewChange={handleNavigate} userProfile={currentProfile}>
+    <Layout currentView={view} onViewChange={handleNavigate} userProfile={currentProfile} onLogout={handleLogout}>
 
       {view === 'home' && (
         <HomeView

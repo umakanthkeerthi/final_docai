@@ -1,0 +1,150 @@
+
+/* Profile Dropdown Styles in Layout.jsx */
+.profile-dropdown {
+  position: absolute;
+  top: 120%;
+  right: 0;
+  width: 280px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px -10px rgba(0,0,0,0.2);
+  padding: 20px;
+  z-index: 1000;
+  animation: slideIn 0.2s ease-out;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.profile-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 20px;
+  width: 12px;
+  height: 12px;
+  background: white;
+  transform: rotate(45deg);
+  border-top: 1px solid rgba(0,0,0,0.05);
+  border-left: 1px solid rgba(0,0,0,0.05);
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.profile-avatar-large {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #f0fdfa;
+  color: var(--primary-teal);
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ccfbf1;
+}
+
+.profile-info h4 {
+  margin: 0 0 4px 0;
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.profile-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.badge.blood {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.profile-details {
+  padding: 16px 0;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.detail-item:last-child {
+  margin-bottom: 0;
+}
+
+.detail-item .icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+.profile-actions {
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.logout-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  background: #fee2e2;
+  color: #ef4444;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.logout-btn:hover {
+  background: #fecaca;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .profile-dropdown {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    border-radius: 20px 20px 0 0;
+    animation: slideUp 0.3s ease-out;
+  }
+  .profile-dropdown::before {
+    display: none;
+  }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}

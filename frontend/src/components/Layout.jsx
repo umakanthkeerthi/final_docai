@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
+import '../profile.css';
 
 export const Icons = {
     Home: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>,
@@ -8,7 +9,22 @@ export const Icons = {
     Records: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
 };
 
-export default function Layout({ children, currentView, onViewChange, userProfile }) {
+export default function Layout({ children, currentView, onViewChange, userProfile, onLogout }) {
+    const [showProfileMenu, setShowProfileMenu] = React.useState(false);
+    const profileRef = useRef(null);
+
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (profileRef.current && !profileRef.current.contains(event.target)) {
+                setShowProfileMenu(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [profileRef]);
+
     return (
         <>
             <header className={`header ${currentView === 'stores' ? 'hide-on-mobile' : ''}`}>
@@ -21,14 +37,6 @@ export default function Layout({ children, currentView, onViewChange, userProfil
                     <span>DocAI</span>
                 </div>
 
-                {userProfile && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: 20 }}>
-                        <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'white', color: 'var(--primary-teal)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 10 }}>
-                            {userProfile.name[0]}
-                        </div>
-                        <span style={{ color: 'white' }}>{userProfile.name.split(' ')[0]}</span>
-                    </div>
-                )}
                 <nav className="desktop-nav">
                     <a className={`nav-link ${currentView === 'home' ? 'active' : ''}`} onClick={() => onViewChange('home')}>Start Here</a>
                     <a className={`nav-link ${currentView === 'meds' ? 'active' : ''}`} onClick={() => onViewChange('meds')}>Medication</a>
@@ -36,7 +44,90 @@ export default function Layout({ children, currentView, onViewChange, userProfil
                     <a className={`nav-link ${currentView === 'stores' ? 'active' : ''}`} onClick={() => onViewChange('stores')}>Availability</a>
                     <a className={`nav-link ${currentView === 'records' ? 'active' : ''}`} onClick={() => onViewChange('records')}>Records</a>
                 </nav>
-                <div className="avatar" title="Profile Settings"></div>
+
+                {userProfile && (
+                    <div className="profile-container" style={{ position: 'relative' }} ref={profileRef}>
+                        <div
+                            className="profile-trigger"
+                            onClick={() => setShowProfileMenu(!showProfileMenu)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 10,
+                                background: 'rgba(255,255,255,0.15)',
+                                padding: '6px 12px',
+                                borderRadius: 30,
+                                cursor: 'pointer',
+                                transition: 'background 0.2s',
+                                border: '1px solid rgba(255,255,255,0.1)'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.25)'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+                        >
+                            <div style={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: '50%',
+                                background: 'white',
+                                color: 'var(--primary-teal)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 'bold',
+                                fontSize: 14
+                            }}>
+                                {userProfile.name[0]}
+                            </div>
+                            <span style={{ color: 'white', fontWeight: 500, fontSize: 14 }}>{userProfile.name.split(' ')[0]}</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </div>
+
+                        {showProfileMenu && (
+                            <div className="profile-dropdown">
+                                <div className="profile-header">
+                                    <div className="profile-avatar-large">
+                                        {userProfile.name[0]}
+                                    </div>
+                                    <div className="profile-info">
+                                        <h4>{userProfile.name}</h4>
+                                        <div className="profile-badges">
+                                            <span className="badge">{userProfile.age} yrs</span>
+                                            <span className="badge">{userProfile.gender}</span>
+                                            <span className="badge blood">{userProfile.blood_group}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="profile-details">
+                                    <div className="detail-item">
+                                        <span className="icon">📞</span>
+                                        <span>{userProfile.phone || 'No phone'}</span>
+                                    </div>
+                                    <div className="detail-item">
+                                        <span className="icon">📧</span>
+                                        <span>{userProfile.email || 'No email'}</span>
+                                    </div>
+                                    <div className="detail-item">
+                                        <span className="icon">📍</span>
+                                        <span>{userProfile.address || 'No address'}</span>
+                                    </div>
+                                </div>
+
+                                <div className="profile-actions">
+                                    <button className="logout-btn" onClick={() => {
+                                        setShowProfileMenu(false);
+                                        onLogout();
+                                    }}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                                        Log Out
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
             </header>
 
             <main className="main-container">
