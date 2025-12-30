@@ -1,27 +1,29 @@
-import { useState, useEffect } from 'react'
-import './index.css'
-import { API_BASE } from './config'
-import Layout from './components/Layout'
-import HomeView from './components/HomeView'
-import TriageView from './components/TriageView'
-import ChatView from './components/ChatView'
-import SlotView from './components/SlotView'
-import SummaryView from './components/SummaryView'
+import React, { useState, useEffect } from 'react';
+import './index.css';
+import { API_BASE } from './config';
+import Layout from './components/Layout';
+import HomeView from './components/HomeView';
+import TriageView from './components/TriageView';
+import ChatView from './components/ChatView';
+import SlotView from './components/SlotView';
+import SummaryView from './components/SummaryView';
 
-import DoctorProfile from './components/DoctorProfile'
-import PharmacyMap from './components/PharmacyMap'
-import RecordsView from './components/RecordsView'
-import MedicationView from './components/MedicationView'
-import RxAnalyzer from './components/RxAnalyzer'
-import SymptomCheckerView from './components/SymptomCheckerView'
-import WelcomeAnimation from './components/WelcomeAnimation'
-import AuthView from './components/AuthView'
-import ProfileSelector from './components/ProfileSelector'
+import DoctorProfile from './components/DoctorProfile';
+import PharmacyMap from './components/PharmacyMap';
+import RecordsView from './components/RecordsView';
+import MedicationView from './components/MedicationView';
+import RxAnalyzer from './components/RxAnalyzer';
+import SymptomCheckerView from './components/SymptomCheckerView';
+import WelcomeAnimation from './components/WelcomeAnimation';
+import AuthView from './components/AuthView';
+import ProfileSelector from './components/ProfileSelector';
+import DoctorDashboard from './doctor/DoctorDashboard'; // New Import
 
 function App() {
   // --- APP STATE ---
   const [showSplash, setShowSplash] = useState(true);
   const [user, setUser] = useState(null);
+  const [isDoctorMode, setIsDoctorMode] = useState(false);
   const [currentProfile, setCurrentProfile] = useState(null);
   const [view, setView] = useState('home');
   const [triageResult, setTriageResult] = useState(null);
@@ -47,12 +49,12 @@ function App() {
     localStorage.removeItem('docai_user');
     setUser(null);
     setCurrentProfile(null);
+    setIsDoctorMode(false);
     setView('home');
   };
 
   const handleProfileSelect = (profile) => {
     setCurrentProfile(profile);
-    // You could also persist current profile to session storage if desired
   };
 
   const handleAnalyze = async (symptomText) => {
@@ -67,16 +69,13 @@ function App() {
       });
 
       const result = await response.json();
-      console.log("TRIAGE RESULT:", result); // Debug log
-      // alert(JSON.stringify(result)); // Uncomment if needed for extreme debugging
+      console.log("TRIAGE RESULT:", result);
       setTriageResult(result);
-      setInitialSymptom(symptomText); // Store for Chat input
+      setInitialSymptom(symptomText);
 
-      // ROUTING LOGIC
       if (result.is_emergency === true || result.is_emergency === 'true' || result.is_emergency === 'True') {
         handleNavigate('triage');
       } else {
-        // SAFE -> DIRECT TO CHAT
         handleNavigate('chat');
       }
 
@@ -96,12 +95,20 @@ function App() {
     return <WelcomeAnimation onComplete={() => setShowSplash(false)} />;
   }
 
-  // 2. AUTH SCREEN (Login/Signup)
-  if (!user) {
-    return <AuthView onLoginSuccess={handleLoginSuccess} />;
+  // 2. DOCTOR DASHBOARD (Overrides everything else)
+  if (isDoctorMode) {
+    return <DoctorDashboard onLogout={handleLogout} />;
   }
 
-  // 3. PROFILE SELECTOR (Who is checking in?)
+  // 3. AUTH SCREEN (Login/Signup)
+  if (!user) {
+    return <AuthView
+      onLoginSuccess={handleLoginSuccess}
+      onDoctorLogin={() => setIsDoctorMode(true)}
+    />;
+  }
+
+  // 4. PROFILE SELECTOR
   if (!currentProfile) {
     return (
       <ProfileSelector
@@ -112,7 +119,7 @@ function App() {
     );
   }
 
-  // 4. MAIN DASHBOARD
+  // 5. MAIN PATIENT DASHBOARD
   const handleNavigate = (newView) => {
     setView(newView);
   }
@@ -124,7 +131,7 @@ function App() {
         <HomeView
           onAnalyze={handleAnalyze}
           onViewChange={handleNavigate}
-          userName={currentProfile.name} // Pass name to HomeView
+          userName={currentProfile.name}
           isAnalyzing={isAnalyzing}
         />
       )}
