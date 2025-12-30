@@ -52,6 +52,14 @@ def extract_text_from_image(image_bytes):
     """
     Extract text from image using Tesseract OCR
     """
+    # Check if Tesseract is available
+    if not os.path.exists(TESSERACT_PATH):
+        raise Exception(
+            "Tesseract OCR is not installed. "
+            "Please install it from: https://github.com/UB-Mannheim/tesseract/wiki "
+            "Default installation path should be: C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+        )
+    
     try:
         # Load image
         image = Image.open(io.BytesIO(image_bytes))
@@ -65,6 +73,11 @@ def extract_text_from_image(image_bytes):
         print(f"📄 [Rx Analyzer] Extracted {len(raw_text)} characters")
         return raw_text
         
+    except pytesseract.TesseractNotFoundError:
+        raise Exception(
+            "Tesseract executable not found. "
+            "Please install Tesseract OCR from: https://github.com/UB-Mannheim/tesseract/wiki"
+        )
     except Exception as e:
         print(f"❌ [Rx Analyzer] OCR Error: {e}")
         raise
