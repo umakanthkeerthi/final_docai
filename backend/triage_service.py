@@ -135,6 +135,17 @@ def analyze_symptom(text: str):
 
     except Exception as e:
         print(f"Triage LLM Error: {e}")
+        
+        # FAIL-SAFE: Still apply regex check even if LLM fails
+        if is_critical_regex:
+            return {
+                "is_emergency": True,
+                "matched_condition": "Detected Critical Symptom (System Fail-Safe)",
+                "action": "Immediate Medical Attention",
+                "reason": "Symptom matches critical emergency keyword list. (AI System Recovery Mode)",
+                "correlation_analysis": correlation_data
+            }
+            
         return {
             "is_emergency": False,
             "action": "System Error",
