@@ -3,6 +3,8 @@ import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     GoogleAuthProvider,
     signOut,
     onAuthStateChanged
@@ -43,19 +45,33 @@ export function AuthProvider({ children }) {
     // Login with Google
     async function loginWithGoogle() {
         const provider = new GoogleAuthProvider();
-        const userCredential = await signInWithPopup(auth, provider);
 
-        // Check if user document exists, create if not
-        const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+        // Check if mobile device
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+        if (isMobile) {
+            // Use Redirect for mobile (better UX, no popup blocking)
+            await signInWithRedirect(auth, provider);
+            // Result will be handled in useEffect via getRedirectResult or onAuthStateChanged
+            return;
+        } else {
+            // Use Popup for desktop
+            const userCredential = await signInWithPopup(auth, provider);
+            await ensureUserDocument(userCredential.user);
+            return userCredential;
+        }
+    }
+
+    // Helper to ensure user doc exists
+    async function ensureUserDocument(user) {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (!userDoc.exists()) {
-            await setDoc(doc(db, 'users', userCredential.user.uid), {
-                email: userCredential.user.email,
+            await setDoc(doc(db, 'users', user.uid), {
+                email: user.email,
                 profiles: [],
                 createdAt: new Date().toISOString()
             });
         }
-
-        return userCredential;
     }
 
     // Logout
@@ -105,8 +121,18 @@ export function AuthProvider({ children }) {
         }
     }
 
-    // Listen for auth state changes
+    // Listen for auth state changes & handle redirect result
     useEffect(() => {
+        // Handle Redirect Result (for mobile login)
+        getRedirectResult(auth).then(async (result) => {
+            if (result) {
+                // User just signed in via redirect
+                await ensureUserDocument(result.user);
+            }
+        }).catch((error) => {
+            console.error("Redirect auth error:", error);
+        });
+
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
             if (user) {
