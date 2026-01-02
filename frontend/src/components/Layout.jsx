@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import '../profile.css';
 
 export const Icons = {
@@ -10,6 +11,7 @@ export const Icons = {
 };
 
 export default function Layout({ children, currentView, onViewChange, userProfile, onLogout }) {
+    const { t } = useTranslation();
     const [showProfileMenu, setShowProfileMenu] = React.useState(false);
     const profileRef = useRef(null);
 
@@ -38,11 +40,11 @@ export default function Layout({ children, currentView, onViewChange, userProfil
                 </div>
 
                 <nav className="desktop-nav">
-                    <a className={`nav-link ${currentView === 'home' ? 'active' : ''}`} onClick={() => onViewChange('home')}>Start Here</a>
-                    <a className={`nav-link ${currentView === 'meds' ? 'active' : ''}`} onClick={() => onViewChange('meds')}>Medication</a>
-                    <a className={`nav-link ${currentView === 'doctor' ? 'active' : ''}`} onClick={() => onViewChange('doctor')}>My Doctor</a>
-                    <a className={`nav-link ${currentView === 'stores' ? 'active' : ''}`} onClick={() => onViewChange('stores')}>Availability</a>
-                    <a className={`nav-link ${currentView === 'records' ? 'active' : ''}`} onClick={() => onViewChange('records')}>Records</a>
+                    <a className={`nav-link ${currentView === 'home' ? 'active' : ''}`} onClick={() => onViewChange('home')}>{t('nav.startHere')}</a>
+                    <a className={`nav-link ${currentView === 'meds' ? 'active' : ''}`} onClick={() => onViewChange('meds')}>{t('nav.medication')}</a>
+                    <a className={`nav-link ${currentView === 'doctor' ? 'active' : ''}`} onClick={() => onViewChange('doctor')}>{t('nav.myDoctor')}</a>
+                    <a className={`nav-link ${currentView === 'stores' ? 'active' : ''}`} onClick={() => onViewChange('stores')}>{t('nav.availability')}</a>
+                    <a className={`nav-link ${currentView === 'records' ? 'active' : ''}`} onClick={() => onViewChange('records')}>{t('nav.records')}</a>
                 </nav>
 
                 {userProfile && (
@@ -81,7 +83,7 @@ export default function Layout({ children, currentView, onViewChange, userProfil
                                     <div className="profile-info">
                                         <h4>{userProfile.name}</h4>
                                         <div className="profile-badges">
-                                            <span className="badge">{userProfile.age} yrs</span>
+                                            <span className="badge">{userProfile.age} {t('profile.years')}</span>
                                             <span className="badge">{userProfile.gender}</span>
                                             <span className="badge blood">{userProfile.blood_group}</span>
                                         </div>
@@ -91,15 +93,15 @@ export default function Layout({ children, currentView, onViewChange, userProfil
                                 <div className="profile-details">
                                     <div className="detail-item">
                                         <span className="icon">📞</span>
-                                        <span>{userProfile.phone || 'No phone'}</span>
+                                        <span>{userProfile.phone || t('profile.noPhone')}</span>
                                     </div>
                                     <div className="detail-item">
                                         <span className="icon">📧</span>
-                                        <span>{userProfile.email || 'No email'}</span>
+                                        <span>{userProfile.email || t('profile.noEmail')}</span>
                                     </div>
                                     <div className="detail-item">
                                         <span className="icon">📍</span>
-                                        <span>{userProfile.address || 'No address'}</span>
+                                        <span>{userProfile.address || t('profile.noAddress')}</span>
                                     </div>
                                 </div>
 
@@ -109,7 +111,7 @@ export default function Layout({ children, currentView, onViewChange, userProfil
                                         onLogout();
                                     }}>
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                                        Log Out
+                                        {t('profile.logout')}
                                     </button>
                                 </div>
                             </div>
@@ -123,11 +125,11 @@ export default function Layout({ children, currentView, onViewChange, userProfil
             </main>
 
             <nav className="mobile-bottom-nav">
-                <a className={`mobile-nav-item ${currentView === 'home' ? 'active' : ''}`} onClick={() => onViewChange('home')}>{Icons.Home}<span>Home</span></a>
-                <a className={`mobile-nav-item ${currentView === 'meds' ? 'active' : ''}`} onClick={() => onViewChange('meds')}>{Icons.Meds}<span>Meds</span></a>
-                <a className={`mobile-nav-item ${currentView === 'doctor' ? 'active' : ''}`} onClick={() => onViewChange('doctor')}>{Icons.Doctor}<span>My Doc</span></a>
-                <a className={`mobile-nav-item ${currentView === 'stores' ? 'active' : ''}`} onClick={() => onViewChange('stores')}>{Icons.Stores}<span>Stores</span></a>
-                <a className={`mobile-nav-item ${currentView === 'records' ? 'active' : ''}`} onClick={() => onViewChange('records')}>{Icons.Records}<span>Records</span></a>
+                <a className={`mobile-nav-item ${currentView === 'home' ? 'active' : ''}`} onClick={() => onViewChange('home')}>{Icons.Home}<span>{t('nav.home')}</span></a>
+                <a className={`mobile-nav-item ${currentView === 'meds' ? 'active' : ''}`} onClick={() => onViewChange('meds')}>{Icons.Meds}<span>{t('nav.meds')}</span></a>
+                <a className={`mobile-nav-item ${currentView === 'doctor' ? 'active' : ''}`} onClick={() => onViewChange('doctor')}>{Icons.Doctor}<span>{t('nav.myDoc')}</span></a>
+                <a className={`mobile-nav-item ${currentView === 'stores' ? 'active' : ''}`} onClick={() => onViewChange('stores')}>{Icons.Stores}<span>{t('nav.stores')}</span></a>
+                <a className={`mobile-nav-item ${currentView === 'records' ? 'active' : ''}`} onClick={() => onViewChange('records')}>{Icons.Records}<span>{t('nav.records')}</span></a>
             </nav>
         </>
     );

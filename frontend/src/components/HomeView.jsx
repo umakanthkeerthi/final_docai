@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { API_BASE } from '../config';
+import LanguageSelector from './LanguageSelector';
 
 const Spinner = () => (
     <div style={{ display: 'inline-block', width: '20px', height: '20px', border: '3px solid rgba(255,255,255,0.3)', borderRadius: '50%', borderTopColor: '#fff', animation: 'spin 1s ease-in-out infinite', verticalAlign: 'middle', marginRight: 8 }}>
@@ -8,6 +10,7 @@ const Spinner = () => (
 );
 
 export default function HomeView({ onAnalyze, onViewChange, userName, isAnalyzing }) {
+    const { t } = useTranslation();
     const [symptomInput, setSymptomInput] = useState('');
     const [isRecording, setIsRecording] = useState(false);
     const [isProcessingAudio, setIsProcessingAudio] = useState(false);
@@ -79,16 +82,20 @@ export default function HomeView({ onAnalyze, onViewChange, userName, isAnalyzin
         <div style={{ paddingBottom: 80 }}>
             {/* Hero Section */}
             <div style={{ marginBottom: 32 }}>
-                <h1 style={{
-                    fontSize: 32,
-                    marginBottom: 8,
-                    color: 'var(--text-dark)',
-                    fontWeight: 800
-                }}>
-                    Hello, {userName || 'User'} 👋
-                </h1>
-                <p style={{ color: 'var(--text-soft)', fontSize: 16 }}>
-                    How are you feeling today?
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <h1 style={{
+                        fontSize: 32,
+                        marginBottom: 8,
+                        color: 'var(--text-dark)',
+                        fontWeight: 800,
+                        marginTop: 0
+                    }}>
+                        {t('home.greeting', { name: userName || 'User' })}
+                    </h1>
+                    <LanguageSelector variant="minimal" />
+                </div>
+                <p style={{ color: 'var(--text-soft)', fontSize: 16, marginTop: 0 }}>
+                    {t('home.subtitle')}
                 </p>
             </div>
 
@@ -97,7 +104,7 @@ export default function HomeView({ onAnalyze, onViewChange, userName, isAnalyzin
                 <textarea
                     ref={textareaRef}
                     className="symptom-input"
-                    placeholder="Describe your symptoms (e.g., 'severe headache since morning')..."
+                    placeholder={t('home.symptomPlaceholder')}
                     value={symptomInput}
                     onChange={(e) => setSymptomInput(e.target.value)}
                     rows={4}
@@ -120,7 +127,7 @@ export default function HomeView({ onAnalyze, onViewChange, userName, isAnalyzin
                     className={`voice-btn ${isRecording ? 'recording' : ''} ${isProcessingAudio ? 'processing' : ''}`}
                     onClick={isRecording ? stopRecording : startRecording}
                     disabled={isProcessingAudio}
-                    title={isRecording ? "Stop Recording" : "Use Voice"}
+                    title={isRecording ? t('home.stopRecording') : t('home.useVoice')}
                     style={{
                         position: 'absolute',
                         bottom: 28,
@@ -185,22 +192,22 @@ export default function HomeView({ onAnalyze, onViewChange, userName, isAnalyzin
                 >
                     {isAnalyzing ? (
                         <>
-                            <Spinner /> Analyzing...
+                            <Spinner /> {t('home.analyzing')}
                         </>
-                    ) : 'Analyze Symptoms'}
+                    ) : t('home.analyzeSymptoms')}
                 </button>
             </div>
 
             {/* FEATURES GRID */}
-            <h3 style={{ marginBottom: 16, color: 'var(--text-dark)' }}>What would you like to do?</h3>
+            <h3 style={{ marginBottom: 16, color: 'var(--text-dark)' }}>{t('home.whatToDo')}</h3>
             <div className="grid-2">
                 {/* 1. Prescription Upload (OCR) */}
                 <div className="card action-card" onClick={() => onViewChange('rx-upload')}>
                     <div className="icon-box" style={{ background: '#dbeafe', color: '#2563eb' }}>
                         📄
                     </div>
-                    <h3>Upload Rx</h3>
-                    <p>Scan prescriptions</p>
+                    <h3>{t('home.uploadRx')}</h3>
+                    <p>{t('home.uploadRxDesc')}</p>
                 </div>
 
                 {/* 2. Detailed Symptom Checker */}
@@ -208,8 +215,8 @@ export default function HomeView({ onAnalyze, onViewChange, userName, isAnalyzin
                     <div className="icon-box" style={{ background: '#e0f2fe', color: '#0da5e9' }}>
                         🩺
                     </div>
-                    <h3>Symptom Checker</h3>
-                    <p>Detailed analysis</p>
+                    <h3>{t('home.symptomChecker')}</h3>
+                    <p>{t('home.symptomCheckerDesc')}</p>
                 </div>
             </div>
 

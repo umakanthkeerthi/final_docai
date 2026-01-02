@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export default function PharmacyMap() {
+    const { t } = useTranslation();
     const [selectedStore, setSelectedStore] = useState(null);
     const [sheetHeight, setSheetHeight] = useState(35); // Start smaller - 35%
     const [isDragging, setIsDragging] = useState(false);
@@ -113,10 +115,10 @@ export default function PharmacyMap() {
                 gap: 12
             }}>
                 <div style={{ fontSize: 40 }}>📍</div>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>Getting your location...</div>
+                <div style={{ fontSize: 16, fontWeight: 600 }}>{t('pharmacy.gettingLocation')}</div>
                 {locationError && (
                     <div style={{ fontSize: 13, color: '#718096' }}>
-                        Using default location
+                        {t('pharmacy.usingDefault')}
                     </div>
                 )}
             </div>
@@ -196,7 +198,7 @@ export default function PharmacyMap() {
                     </svg>
                     <input
                         type="text"
-                        placeholder="Search for medicines or pharmacies..."
+                        placeholder={t('pharmacy.searchPlaceholder')}
                         style={{
                             flex: 1,
                             border: 'none',
@@ -216,7 +218,7 @@ export default function PharmacyMap() {
                         fontWeight: 600,
                         cursor: 'pointer'
                     }}>
-                        Search
+                        {t('pharmacy.search')}
                     </button>
                 </div>
             </div>
@@ -349,7 +351,7 @@ export default function PharmacyMap() {
                                             color: pharmacy.open ? '#10b981' : '#ef4444',
                                             fontWeight: 600
                                         }}>
-                                            {pharmacy.open ? '● Open' : '● Closed'}
+                                            {pharmacy.open ? `● ${t('pharmacy.open')}` : `● ${t('pharmacy.closed')}`}
                                         </span>
                                     </div>
 
@@ -370,7 +372,7 @@ export default function PharmacyMap() {
                                             fontWeight: 600,
                                             cursor: 'pointer'
                                         }}>
-                                            Navigate
+                                            {t('pharmacy.navigate')}
                                         </button>
                                         <button style={{
                                             flex: 1,
@@ -383,7 +385,7 @@ export default function PharmacyMap() {
                                             fontWeight: 600,
                                             cursor: 'pointer'
                                         }}>
-                                            Call
+                                            {t('pharmacy.call')}
                                         </button>
                                     </div>
                                 </div>

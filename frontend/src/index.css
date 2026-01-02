@@ -706,3 +706,18 @@ body {
         padding: 14px;
     }
 }
+
+/* --- Google Translate Widget Styles --- */
+/* Hide the default Google widget so we can use custom buttons */
+#google_translate_element {
+    display: none !important;
+}
+
+/* Hide the top banner frame that Google inserts */
+.goog-te-banner-frame {
+    display: none !important;
+}
+
+body {
+    top: 0px !important;
+}

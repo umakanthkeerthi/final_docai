@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import LanguageSelector from './LanguageSelector';
 
 export default function ProfileSelector({ profiles, onSelect, onLogout }) {
     const { addProfile } = useAuth();
@@ -72,6 +73,11 @@ export default function ProfileSelector({ profiles, onSelect, onLogout }) {
             padding: '40px 20px',
             boxSizing: 'border-box'
         }}>
+            {/* Language Selector Top Left */}
+            <div style={{ position: 'fixed', top: 20, left: 20, zIndex: 110 }}>
+                <LanguageSelector />
+            </div>
+
             <h1 style={{
                 fontSize: 36,
                 fontWeight: 700,

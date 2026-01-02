@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { API_BASE } from '../config';
 import FileUploadModal from './FileUploadModal';
 import FileViewerModal from './FileViewerModal';
 
 export default function RecordsView({ selectedProfile }) {
+    const { t } = useTranslation();
     const { currentUser } = useAuth();
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -47,7 +49,7 @@ export default function RecordsView({ selectedProfile }) {
     };
 
     const handleDelete = async (recordId) => {
-        if (!confirm('Are you sure you want to delete this record?')) return;
+        if (!confirm(t('records.confirmDelete') || 'Are you sure you want to delete this record?')) return;
 
         try {
             const response = await fetch(`${API_BASE}/records/${recordId}?user_id=${currentUser.uid}`, {
@@ -107,10 +109,10 @@ export default function RecordsView({ selectedProfile }) {
                 <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: '#1a202c' }}>
-                            Medical Records
+                            {t('records.title')}
                         </h1>
                         <p style={{ fontSize: 14, color: '#718096', margin: '5px 0 0 0' }}>
-                            {selectedProfile ? `Records for ${selectedProfile.name}` : 'Your health history'}
+                            {selectedProfile ? `${t('records.recordsFor')} ${selectedProfile.name}` : t('records.yourHistory')}
                         </p>
                     </div>
                     <button
@@ -130,7 +132,7 @@ export default function RecordsView({ selectedProfile }) {
                             boxShadow: '0 2px 4px rgba(49, 130, 206, 0.3)'
                         }}
                     >
-                        <span>+</span> Upload
+                        <span>+</span> {t('records.upload')}
                     </button>
                 </div>
 
@@ -138,7 +140,7 @@ export default function RecordsView({ selectedProfile }) {
                 {loading && (
                     <div style={{ textAlign: 'center', padding: 40, color: '#718096' }}>
                         <div style={{ fontSize: 40, marginBottom: 16 }}>⏳</div>
-                        <p>Loading records...</p>
+                        <p>{t('records.loading')}</p>
                     </div>
                 )}
 
@@ -167,10 +169,10 @@ export default function RecordsView({ selectedProfile }) {
                     }}>
                         <div style={{ fontSize: 60, marginBottom: 16 }}>📁</div>
                         <h3 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 8px 0', color: '#1a202c' }}>
-                            No Records Yet
+                            {t('records.noRecords')}
                         </h3>
                         <p style={{ fontSize: 14, color: '#718096', margin: 0 }}>
-                            Upload prescriptions or save consultation summaries to see them here
+                            {t('records.uploadPrompt')}
                         </p>
                     </div>
                 )}
@@ -179,7 +181,7 @@ export default function RecordsView({ selectedProfile }) {
                 {!loading && records.length > 0 && (
                     <div style={{ marginBottom: 20 }}>
                         <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16, color: '#1a202c' }}>
-                            Recent Records ({records.length})
+                            {t('records.recentRecords')} ({records.length})
                         </h2>
 
                         {records.map((record) => {
@@ -283,7 +285,7 @@ export default function RecordsView({ selectedProfile }) {
                                                                 color: '#1e40af'
                                                             }}
                                                         >
-                                                            👁️ View
+                                                            👁️ {t('records.view')}
                                                         </button>
                                                     )}
                                                     <button
@@ -299,7 +301,7 @@ export default function RecordsView({ selectedProfile }) {
                                                             color: '#991b1b'
                                                         }}
                                                     >
-                                                        Delete
+                                                        {t('records.delete')}
                                                     </button>
                                                 </div>
                                             </div>

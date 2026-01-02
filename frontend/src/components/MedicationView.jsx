@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export default function MedicationView() {
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState('current'); // current, history
 
     const currentMeds = [
@@ -52,10 +54,10 @@ export default function MedicationView() {
             {/* Header */}
             <div style={{ marginBottom: 24 }}>
                 <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: '#1a202c' }}>
-                    My Medications
+                    {t('medication.title')}
                 </h1>
                 <p style={{ fontSize: 14, color: '#718096', margin: '5px 0 0 0' }}>
-                    Track your prescriptions and reminders
+                    {t('medication.subtitle')}
                 </p>
             </div>
 
@@ -73,7 +75,7 @@ export default function MedicationView() {
                     color: 'white'
                 }}>
                     <div style={{ fontSize: 28, fontWeight: 700 }}>{currentMeds.length}</div>
-                    <div style={{ fontSize: 12, opacity: 0.9 }}>Active Meds</div>
+                    <div style={{ fontSize: 12, opacity: 0.9 }}>{t('medication.activeMeds')}</div>
                 </div>
                 <div style={{
                     background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
@@ -82,7 +84,7 @@ export default function MedicationView() {
                     color: 'white'
                 }}>
                     <div style={{ fontSize: 28, fontWeight: 700 }}>4</div>
-                    <div style={{ fontSize: 12, opacity: 0.9 }}>Due Today</div>
+                    <div style={{ fontSize: 12, opacity: 0.9 }}>{t('medication.dueToday')}</div>
                 </div>
                 <div style={{
                     background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
@@ -91,7 +93,7 @@ export default function MedicationView() {
                     color: 'white'
                 }}>
                     <div style={{ fontSize: 28, fontWeight: 700 }}>98%</div>
-                    <div style={{ fontSize: 12, opacity: 0.9 }}>Adherence</div>
+                    <div style={{ fontSize: 12, opacity: 0.9 }}>{t('medication.adherence')}</div>
                 </div>
             </div>
 
@@ -117,7 +119,7 @@ export default function MedicationView() {
                         marginBottom: -2
                     }}
                 >
-                    Current
+                    {t('medication.current')}
                 </button>
                 <button
                     onClick={() => setActiveTab('history')}
@@ -133,7 +135,7 @@ export default function MedicationView() {
                         marginBottom: -2
                     }}
                 >
-                    History
+                    {t('medication.history')}
                 </button>
             </div>
 
@@ -171,7 +173,7 @@ export default function MedicationView() {
                                         fontSize: 12,
                                         fontWeight: 600
                                     }}>
-                                        {med.daysLeft} days left
+                                        {med.daysLeft} {t('medication.daysLeft')}
                                     </span>
                                 )}
                             </div>
@@ -203,10 +205,10 @@ export default function MedicationView() {
                                 marginBottom: 12
                             }}>
                                 <div style={{ fontSize: 13, color: '#4a5568', marginBottom: 6 }}>
-                                    <strong>Instructions:</strong> {med.instructions}
+                                    <strong>{t('medication.instructions')}:</strong> {med.instructions}
                                 </div>
                                 <div style={{ fontSize: 13, color: '#4a5568' }}>
-                                    <strong>Prescribed by:</strong> {med.prescribedBy}
+                                    <strong>{t('medication.prescribedBy')}:</strong> {med.prescribedBy}
                                 </div>
                             </div>
 
@@ -223,7 +225,7 @@ export default function MedicationView() {
                                     fontWeight: 600,
                                     cursor: 'pointer'
                                 }}>
-                                    ✓ Mark as Taken
+                                    ✓ {t('medication.markTaken')}
                                 </button>
                                 <button style={{
                                     background: '#f7fafc',
@@ -235,7 +237,7 @@ export default function MedicationView() {
                                     fontWeight: 600,
                                     cursor: 'pointer'
                                 }}>
-                                    ⏰ Remind
+                                    ⏰ {t('medication.remind')}
                                 </button>
                             </div>
                         </div>
@@ -254,7 +256,7 @@ export default function MedicationView() {
                         cursor: 'pointer',
                         marginTop: 8
                     }}>
-                        + Add New Medication
+                        + {t('medication.addNew')}
                     </button>
                 </div>
             )}

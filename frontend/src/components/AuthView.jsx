@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import LanguageSelector from './LanguageSelector';
 
 export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
+    const { t } = useTranslation();
     const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -54,17 +57,17 @@ export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
             console.error('Error message:', err.message);
 
             // User-friendly error messages
-            let errorMessage = 'Authentication failed';
+            let errorMessage = t('auth.errors.authFailed');
             if (err.code === 'auth/wrong-password') {
-                errorMessage = 'Incorrect password';
+                errorMessage = t('auth.errors.wrongPassword');
             } else if (err.code === 'auth/user-not-found') {
-                errorMessage = 'No account found with this email';
+                errorMessage = t('auth.errors.userNotFound');
             } else if (err.code === 'auth/email-already-in-use') {
-                errorMessage = 'Email already in use';
+                errorMessage = t('auth.errors.emailInUse');
             } else if (err.code === 'auth/weak-password') {
-                errorMessage = 'Password should be at least 6 characters';
+                errorMessage = t('auth.errors.weakPassword');
             } else if (err.code === 'auth/invalid-email') {
-                errorMessage = 'Invalid email address';
+                errorMessage = t('auth.errors.invalidEmail');
             } else if (err.message) {
                 errorMessage = err.message;
             }
@@ -104,6 +107,11 @@ export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
             left: 0,
             overflow: 'auto'
         }}>
+            {/* Language Selector Top Right */}
+            <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 10 }}>
+                <LanguageSelector />
+            </div>
+
             {/* Animated Background Elements */}
             <div style={{
                 position: 'absolute',
@@ -150,10 +158,10 @@ export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
                         fontSize: 32,
                         fontWeight: 700
                     }}>
-                        {isLogin ? 'Welcome Back' : 'Join DocAI'}
+                        {isLogin ? t('auth.welcomeBack') : t('auth.joinDocAI')}
                     </h1>
                     <p style={{ color: '#6b7280', margin: 0, fontSize: 15 }}>
-                        {isLogin ? 'Sign in to access your health dashboard' : 'Create your account to get started'}
+                        {isLogin ? t('auth.signInSubtitle') : t('auth.signUpSubtitle')}
                     </p>
                 </div>
 
@@ -165,14 +173,14 @@ export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
                             color: '#374151',
                             fontSize: 14,
                             fontWeight: 600
-                        }}>Email Address</label>
+                        }}>{t('auth.email')}</label>
                         <input
                             type="email"
                             name="email"
                             value={formData.email}
                             onChange={handleChange}
                             required
-                            placeholder="you@example.com"
+                            placeholder={t('auth.emailPlaceholder')}
                             style={{
                                 width: '100%',
                                 padding: '14px 16px',
@@ -195,14 +203,14 @@ export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
                             color: '#374151',
                             fontSize: 14,
                             fontWeight: 600
-                        }}>Password</label>
+                        }}>{t('auth.password')}</label>
                         <input
                             type="password"
                             name="password"
                             value={formData.password}
                             onChange={handleChange}
                             required
-                            placeholder="••••••••"
+                            placeholder={t('auth.passwordPlaceholder')}
                             minLength={6}
                             style={{
                                 width: '100%',
@@ -228,14 +236,14 @@ export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
                                     color: '#374151',
                                     fontSize: 14,
                                     fontWeight: 600
-                                }}>Phone Number</label>
+                                }}>{t('auth.phone')}</label>
                                 <input
                                     type="tel"
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleChange}
                                     required
-                                    placeholder="+91 98765 43210"
+                                    placeholder={t('auth.phonePlaceholder')}
                                     style={{
                                         width: '100%',
                                         padding: '14px 16px',
@@ -258,13 +266,13 @@ export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
                                     color: '#374151',
                                     fontSize: 14,
                                     fontWeight: 600
-                                }}>Address</label>
+                                }}>{t('auth.address')}</label>
                                 <textarea
                                     name="address"
                                     value={formData.address}
                                     onChange={handleChange}
                                     required
-                                    placeholder="Enter your full address"
+                                    placeholder={t('auth.addressPlaceholder')}
                                     rows={3}
                                     style={{
                                         width: '100%',
@@ -330,7 +338,7 @@ export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
                             e.target.style.boxShadow = '0 4px 12px rgba(20, 184, 166, 0.4)';
                         }}
                     >
-                        {loading ? '⏳ Processing...' : (isLogin ? '🔓 Sign In' : '🚀 Create Account')}
+                        {loading ? t('auth.processing') : (isLogin ? t('auth.signIn') : t('auth.signUp'))}
                     </button>
 
                     <div style={{
@@ -395,7 +403,7 @@ export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
                             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                         </svg>
-                        Continue with Google
+                        {t('auth.continueWithGoogle')}
                     </button>
 
                     <div style={{ textAlign: 'center', marginTop: 24 }}>
@@ -417,7 +425,7 @@ export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
                             onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
                             onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
                         >
-                            {isLogin ? "Don't have an account? Sign Up →" : "Already have an account? Sign In →"}
+                            {isLogin ? t('auth.noAccount') : t('auth.haveAccount')}
                         </button>
                     </div>
 
@@ -427,7 +435,7 @@ export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
                             onClick={onDoctorLogin}
                             style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
                         >
-                            Restricted: Doctor Login
+                            {t('auth.doctorLogin')}
                         </button>
                     </div>
                 </form>
