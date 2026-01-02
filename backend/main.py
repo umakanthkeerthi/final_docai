@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request, APIRouter
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from groq import Groq
@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from chat_engine import get_medical_response, generate_summary
 from triage_service import analyze_symptom
 from prescription_analyzer import analyze_prescription
-from auth_service import signup_user, login_user, add_profile
+from firebase_auth_service import signup_user, login_user, add_profile
 
 # Fix .env loading to be relative to this script
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -309,10 +309,13 @@ async def process_audio(audio: UploadFile = File(...)):
             os.remove(temp_filename)
 
 @api_router.post("/analyze_prescription")
-async def analyze_prescription_endpoint(image: UploadFile = File(...)):
+async def analyze_prescription_endpoint(
+    image: UploadFile = File(...)
+):
     """
     Analyze prescription image using OCR + AI
     Extracts medicines, dosages, and other details
+    Does NOT auto-save - user must confirm to save
     """
     try:
         # Read image bytes
@@ -327,6 +330,39 @@ async def analyze_prescription_endpoint(image: UploadFile = File(...)):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Prescription analysis error: {str(e)}")
+
+@api_router.post("/save_prescription_record")
+async def save_prescription_record_endpoint(request: Request):
+    """
+    Save prescription analysis to records after user confirmation
+    """
+    try:
+        body = await request.json()
+        user_id = body.get("user_id")
+        profile_id = body.get("profile_id")
+        prescription_data = body.get("prescription_data")
+        
+        print(f"📝 Save prescription request received:")
+        print(f"   user_id: {user_id}")
+        print(f"   profile_id: {profile_id}")
+        print(f"   prescription_data keys: {prescription_data.keys() if prescription_data else None}")
+        
+        if not user_id or not prescription_data:
+            raise HTTPException(status_code=400, detail="user_id and prescription_data are required")
+        
+        from firestore_service import save_prescription
+        result = save_prescription(user_id, profile_id, prescription_data)
+        
+        print(f"📝 Save result: {result}")
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Save prescription error: {str(e)}")
+
 
 @api_router.post("/triage")
 async def triage_endpoint(request: Request):
@@ -349,6 +385,159 @@ async def triage_endpoint(request: Request):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Triage error: {str(e)}")
+
+# --- RECORDS MANAGEMENT ---
+
+@api_router.post("/save_summary")
+async def save_summary_endpoint(request: Request):
+    """
+    Save consultation summary to Firestore
+    """
+    try:
+        body = await request.json()
+        user_id = body.get("user_id")
+        profile_id = body.get("profile_id")
+        summary_data = body.get("summary_data")
+        
+        if not user_id or not summary_data:
+            raise HTTPException(status_code=400, detail="user_id and summary_data are required")
+        
+        from firestore_service import save_summary
+        result = save_summary(user_id, profile_id, summary_data)
+        
+        return result
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Save summary error: {str(e)}")
+
+@api_router.get("/records/{user_id}")
+async def get_records_endpoint(user_id: str, profile_id: str = None):
+    """
+    Get all records (prescriptions + summaries) for a user
+    """
+    try:
+        from firestore_service import get_user_records
+        result = get_user_records(user_id, profile_id)
+        
+        return result
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Get records error: {str(e)}")
+
+@api_router.delete("/records/{record_id}")
+async def delete_record_endpoint(record_id: str, user_id: str):
+    """
+    Delete a record
+    """
+    try:
+        from firestore_service import delete_record
+        result = delete_record(record_id, user_id)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("error", "Delete failed"))
+        
+        return result
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Delete record error: {str(e)}")
+
+@api_router.post("/upload-medical-file")
+async def upload_medical_file_endpoint(
+    file: UploadFile = File(...),
+    user_id: str = Form(...),
+    profile_id: str = Form(...),
+    category: str = Form(...),
+    notes: str = Form(None)
+):
+    """
+    Upload a medical document (prescription, blood test, X-ray, etc.)
+    Saves the file and creates a record in Firestore
+    """
+    try:
+        # Create uploads directory if it doesn't exist
+        uploads_dir = os.path.join(current_dir, "uploads")
+        os.makedirs(uploads_dir, exist_ok=True)
+        
+        # Generate unique filename
+        import uuid
+        from datetime import datetime
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{category}_{uuid.uuid4()}{file_extension}"
+        file_path = os.path.join(uploads_dir, unique_filename)
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Prepare record data
+        record_data = {
+            "filename": file.filename,
+            "stored_filename": unique_filename,
+            "file_path": file_path,
+            "category": category,
+            "file_type": file.content_type,
+            "file_size": os.path.getsize(file_path),
+            "notes": notes if notes else ""
+        }
+        
+        # Save to Firestore
+        from firestore_service import save_medical_file
+        result = save_medical_file(user_id, profile_id, record_data)
+        
+        if not result.get("success"):
+            # Clean up file if Firestore save failed
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to save record"))
+        
+        return {
+            "success": True,
+            "message": "File uploaded successfully",
+            "record_id": result.get("id")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Upload error: {str(e)}")
+
+@api_router.get("/files/{filename}")
+async def serve_file(filename: str):
+    """
+    Serve uploaded medical files
+    """
+    try:
+        from fastapi.responses import FileResponse
+        
+        file_path = os.path.join(current_dir, "uploads", filename)
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Determine media type based on file extension
+        import mimetypes
+        media_type = mimetypes.guess_type(file_path)[0] or 'application/octet-stream'
+        
+        return FileResponse(
+            path=file_path,
+            media_type=media_type,
+            filename=filename
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"File serve error: {str(e)}")
 
 # Mount the router AFTER all endpoints are defined
 app.include_router(api_router)

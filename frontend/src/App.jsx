@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import './index.css'
 import { API_BASE } from './config'
+import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import HomeView from './components/HomeView'
 import TriageView from './components/TriageView'
@@ -19,33 +20,24 @@ import AuthView from './components/AuthView'
 import ProfileSelector from './components/ProfileSelector'
 
 function App() {
+  // --- FIREBASE AUTH ---
+  const { currentUser, userProfiles, logout } = useAuth();
+
   // --- APP STATE ---
   const [showSplash, setShowSplash] = useState(true);
-  const [user, setUser] = useState(null);
   const [currentProfile, setCurrentProfile] = useState(null);
   const [view, setView] = useState('home');
   const [triageResult, setTriageResult] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [initialSymptom, setInitialSymptom] = useState('');
 
-  // --- PERSISTENCE ---
-  useEffect(() => {
-    // Check if user is logged in
-    const storedUser = localStorage.getItem('docai_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);
-
   // --- HANDLERS ---
-  const handleLoginSuccess = (userData) => {
-    localStorage.setItem('docai_user', JSON.stringify(userData));
-    setUser(userData);
+  const handleLoginSuccess = () => {
+    // Firebase handles user state automatically
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('docai_user');
-    setUser(null);
+  const handleLogout = async () => {
+    await logout();
     setCurrentProfile(null);
     setView('home');
   };
@@ -97,19 +89,13 @@ function App() {
   }
 
   // 2. AUTH SCREEN (Login/Signup)
-  if (!user) {
+  if (!currentUser) {
     return <AuthView onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // 3. PROFILE SELECTOR (Who is checking in?)
+  // 3. PROFILE SELECTOR (if no profile selected)
   if (!currentProfile) {
-    return (
-      <ProfileSelector
-        user={user}
-        onProfileValues={handleProfileSelect}
-        onLogout={handleLogout}
-      />
-    );
+    return <ProfileSelector profiles={userProfiles} onSelect={handleProfileSelect} onLogout={handleLogout} />;
   }
 
   // 4. MAIN DASHBOARD
@@ -183,10 +169,16 @@ function App() {
         <MedicationView />
       )}
       {view === 'records' && (
-        <RecordsView />
+        <RecordsView
+          selectedProfile={currentProfile}
+        />
       )}
       {view === 'rx-upload' && (
-        <RxAnalyzer onBack={() => handleNavigate('home')} />
+        <RxAnalyzer
+          onBack={() => handleNavigate('home')}
+          currentUser={currentUser}
+          selectedProfile={currentProfile}
+        />
       )}
       {view === 'symptom-checker' && (
         <SymptomCheckerView

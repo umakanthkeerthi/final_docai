@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { API_BASE } from '../config';
+import { useAuth } from '../contexts/AuthContext';
 
-export default function ProfileSelector({ user, onProfileValues, onLogout }) {
-    const [profiles, setProfiles] = useState(user.profiles || []);
+export default function ProfileSelector({ profiles, onSelect, onLogout }) {
+    const { addProfile } = useAuth();
     const [showAddModal, setShowAddModal] = useState(false);
     const [adding, setAdding] = useState(false);
 
@@ -19,18 +19,9 @@ export default function ProfileSelector({ user, onProfileValues, onLogout }) {
         setAdding(true);
 
         try {
-            const response = await fetch(`${API_BASE}/add_profile`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: user.email,
-                    ...newProfile
-                })
-            });
-            const data = await response.json();
+            const result = await addProfile(newProfile);
 
-            if (data.success) {
-                setProfiles(data.profiles);
+            if (result.success) {
                 setShowAddModal(false);
                 setNewProfile({
                     name: '',
@@ -40,9 +31,10 @@ export default function ProfileSelector({ user, onProfileValues, onLogout }) {
                     blood_group: 'Select Blood Group'
                 });
             } else {
-                alert(data.detail);
+                alert(result.error || 'Failed to add profile');
             }
         } catch (err) {
+            console.error(err);
             alert('Failed to add profile');
         } finally {
             setAdding(false);
@@ -50,7 +42,7 @@ export default function ProfileSelector({ user, onProfileValues, onLogout }) {
     };
 
     const getAvatarColor = (index) => {
-        const colors = ['#f87171', '#fbbf24', '#34d399', '#60a5fa', '#a78bfa', '#f472b6'];
+        const colors = ['#5eead4', '#2dd4bf', '#14b8a6', '#0d9488', '#0f766e', '#134e4a'];
         return colors[index % colors.length];
     };
 
@@ -61,19 +53,33 @@ export default function ProfileSelector({ user, onProfileValues, onLogout }) {
     return (
         <div style={{
             minHeight: '100vh',
-            width: '100vw',
-            background: '#111827', // Netflix-style dark background
+            minWidth: '100vw',
+            width: '100%',
+            height: '100%',
+            background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'white',
-            position: 'absolute',
+            color: '#0f766e',
+            position: 'fixed',
             top: 0,
             left: 0,
-            zIndex: 100
+            right: 0,
+            bottom: 0,
+            zIndex: 100,
+            overflow: 'auto',
+            padding: '40px 20px',
+            boxSizing: 'border-box'
         }}>
-            <h1 style={{ fontSize: 36, fontWeight: 500, marginBottom: 40 }}>Who's checking in?</h1>
+            <h1 style={{
+                fontSize: 36,
+                fontWeight: 700,
+                marginBottom: 40,
+                color: '#0f766e',
+                textAlign: 'center',
+                width: '100%'
+            }}>Who's checking in?</h1>
 
             <div style={{
                 display: 'flex',
@@ -85,14 +91,14 @@ export default function ProfileSelector({ user, onProfileValues, onLogout }) {
                 {profiles.map((profile, idx) => (
                     <div
                         key={profile.id}
-                        onClick={() => onProfileValues(profile)}
+                        onClick={() => onSelect(profile)}
                         className="profile-card"
                         style={{ cursor: 'pointer', textAlign: 'center', transition: 'transform 0.2s' }}
                     >
                         <div style={{
                             width: 120,
                             height: 120,
-                            borderRadius: 12, // Netflix style rounded square
+                            borderRadius: 12,
                             background: getAvatarColor(idx),
                             display: 'flex',
                             alignItems: 'center',
@@ -100,11 +106,12 @@ export default function ProfileSelector({ user, onProfileValues, onLogout }) {
                             fontSize: 40,
                             fontWeight: 700,
                             marginBottom: 16,
-                            border: '3px solid transparent'
+                            border: '3px solid transparent',
+                            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                         }} className="profile-avatar">
                             {getInitials(profile.name)}
                         </div>
-                        <div style={{ fontSize: 16, color: '#9ca3af' }}>{profile.name}</div>
+                        <div style={{ fontSize: 16, color: '#0f766e', fontWeight: 600 }}>{profile.name}</div>
                     </div>
                 ))}
 
@@ -118,33 +125,45 @@ export default function ProfileSelector({ user, onProfileValues, onLogout }) {
                         width: 120,
                         height: 120,
                         borderRadius: 12,
-                        background: 'transparent',
-                        border: '3px solid #374151',
+                        background: 'white',
+                        border: '3px dashed #14b8a6',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontSize: 60,
-                        color: '#6b7280',
-                        marginBottom: 16
+                        color: '#14b8a6',
+                        marginBottom: 16,
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                     }} className="profile-add">
                         +
                     </div>
-                    <div style={{ fontSize: 16, color: '#6b7280' }}>Add Profile</div>
+                    <div style={{ fontSize: 16, color: '#14b8a6', fontWeight: 600 }}>Add Profile</div>
                 </div>
             </div>
 
             <button
                 onClick={onLogout}
                 style={{
-                    position: 'absolute',
+                    position: 'fixed',
                     top: 20,
                     right: 20,
-                    background: 'transparent',
-                    border: '1px solid #374151',
-                    color: '#9ca3af',
-                    padding: '8px 16px',
-                    borderRadius: 4,
-                    cursor: 'pointer'
+                    background: 'white',
+                    border: '2px solid #14b8a6',
+                    color: '#14b8a6',
+                    padding: '10px 20px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                    e.target.style.background = '#14b8a6';
+                    e.target.style.color = 'white';
+                }}
+                onMouseLeave={(e) => {
+                    e.target.style.background = 'white';
+                    e.target.style.color = '#14b8a6';
                 }}
             >
                 Logout
@@ -153,12 +172,13 @@ export default function ProfileSelector({ user, onProfileValues, onLogout }) {
             {/* Styles for hover effects */}
             <style>{`
                 .profile-card:hover .profile-avatar {
-                    border-color: white;
+                    border-color: #14b8a6;
                     transform: scale(1.05);
                 }
                 .profile-card:hover .profile-add {
-                    border-color: white;
-                    color: white;
+                    border-color: #0f766e;
+                    color: #0f766e;
+                    background: #f0fdfa;
                 }
             `}</style>
 
@@ -170,84 +190,239 @@ export default function ProfileSelector({ user, onProfileValues, onLogout }) {
                     left: 0,
                     width: '100%',
                     height: '100%',
-                    background: 'rgba(0,0,0,0.8)',
+                    background: 'rgba(0,0,0,0.5)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    zIndex: 200
-                }}>
-                    <div className="card" style={{ width: 400, background: 'white', color: 'black' }}>
-                        <h2 style={{ marginTop: 0 }}>Add Profile</h2>
+                    zIndex: 200,
+                    backdropFilter: 'blur(4px)'
+                }} onClick={() => setShowAddModal(false)}>
+                    <div style={{
+                        width: 450,
+                        background: 'white',
+                        borderRadius: 16,
+                        padding: 32,
+                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+                        maxHeight: '90vh',
+                        overflowY: 'auto'
+                    }} onClick={(e) => e.stopPropagation()}>
+                        <h2 style={{
+                            marginTop: 0,
+                            marginBottom: 24,
+                            color: '#0f766e',
+                            fontSize: 24,
+                            fontWeight: 700
+                        }}>Add Profile</h2>
                         <form onSubmit={handleAddProfile}>
-                            <div className="input-group">
-                                <label>Name</label>
+                            {/* Name */}
+                            <div style={{ marginBottom: 20 }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: 8,
+                                    color: '#374151',
+                                    fontSize: 14,
+                                    fontWeight: 600
+                                }}>Name</label>
                                 <input
-                                    className="active-input"
                                     value={newProfile.name}
                                     onChange={e => setNewProfile({ ...newProfile, name: e.target.value })}
                                     required
+                                    placeholder="Enter full name"
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        border: '2px solid #e5e7eb',
+                                        borderRadius: 8,
+                                        fontSize: 15,
+                                        outline: 'none',
+                                        transition: 'border-color 0.2s',
+                                        boxSizing: 'border-box'
+                                    }}
+                                    onFocus={(e) => e.target.style.borderColor = '#14b8a6'}
+                                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                                 />
                             </div>
-                            <div className="input-group">
-                                <label>Age</label>
+
+                            {/* Age */}
+                            <div style={{ marginBottom: 20 }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: 8,
+                                    color: '#374151',
+                                    fontSize: 14,
+                                    fontWeight: 600
+                                }}>Age</label>
                                 <input
                                     type="number"
-                                    className="active-input"
                                     value={newProfile.age}
                                     onChange={e => setNewProfile({ ...newProfile, age: e.target.value })}
                                     required
+                                    placeholder="Enter age"
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        border: '2px solid #e5e7eb',
+                                        borderRadius: 8,
+                                        fontSize: 15,
+                                        outline: 'none',
+                                        transition: 'border-color 0.2s',
+                                        boxSizing: 'border-box'
+                                    }}
+                                    onFocus={(e) => e.target.style.borderColor = '#14b8a6'}
+                                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                                 />
                             </div>
-                            <div className="input-group">
-                                <label>Gender</label>
-                                <select
-                                    className="active-input"
-                                    value={newProfile.gender}
-                                    onChange={e => setNewProfile({ ...newProfile, gender: e.target.value })}
-                                >
-                                    <option disabled>Select Gender</option>
-                                    <option>Male</option>
-                                    <option>Female</option>
-                                    <option>Other</option>
-                                </select>
-                            </div>
-                            <div className="input-group">
-                                <label>Relation</label>
-                                <select
-                                    className="active-input"
-                                    value={newProfile.relation}
-                                    onChange={e => setNewProfile({ ...newProfile, relation: e.target.value })}
-                                >
-                                    <option disabled>Select Relation</option>
-                                    <option>Spouse</option>
-                                    <option>Child</option>
-                                    <option>Parent</option>
-                                    <option>Sibling</option>
-                                    <option>Other</option>
-                                </select>
-                            </div>
-                            <div className="input-group">
-                                <label>Blood Group</label>
-                                <select
-                                    className="active-input"
-                                    value={newProfile.blood_group}
-                                    onChange={e => setNewProfile({ ...newProfile, blood_group: e.target.value })}
-                                >
-                                    <option disabled>Select Blood Group</option>
-                                    <option>A+</option>
-                                    <option>A-</option>
-                                    <option>B+</option>
-                                    <option>B-</option>
-                                    <option>O+</option>
-                                    <option>O-</option>
-                                    <option>AB+</option>
-                                    <option>AB-</option>
-                                </select>
+
+                            {/* Gender - Grid Layout */}
+                            <div style={{ marginBottom: 20 }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: 8,
+                                    color: '#374151',
+                                    fontSize: 14,
+                                    fontWeight: 600
+                                }}>Gender</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                                    {['Male', 'Female', 'Other'].map(gender => (
+                                        <button
+                                            key={gender}
+                                            type="button"
+                                            onClick={() => setNewProfile({ ...newProfile, gender })}
+                                            style={{
+                                                padding: '12px',
+                                                background: newProfile.gender === gender ? '#14b8a6' : 'white',
+                                                color: newProfile.gender === gender ? 'white' : '#6b7280',
+                                                border: `2px solid ${newProfile.gender === gender ? '#14b8a6' : '#e5e7eb'}`,
+                                                borderRadius: 8,
+                                                fontSize: 14,
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {gender}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
-                            <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                                <button type="button" onClick={() => setShowAddModal(false)} className="cta-button secondary">Cancel</button>
-                                <button type="submit" disabled={adding} className="cta-button">{adding ? 'Adding...' : 'Save Profile'}</button>
+                            {/* Relation - Grid Layout */}
+                            <div style={{ marginBottom: 20 }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: 8,
+                                    color: '#374151',
+                                    fontSize: 14,
+                                    fontWeight: 600
+                                }}>Relation</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                                    {['Self', 'Spouse', 'Child', 'Parent', 'Sibling', 'Other'].map(relation => (
+                                        <button
+                                            key={relation}
+                                            type="button"
+                                            onClick={() => setNewProfile({ ...newProfile, relation })}
+                                            style={{
+                                                padding: '12px',
+                                                background: newProfile.relation === relation ? '#14b8a6' : 'white',
+                                                color: newProfile.relation === relation ? 'white' : '#6b7280',
+                                                border: `2px solid ${newProfile.relation === relation ? '#14b8a6' : '#e5e7eb'}`,
+                                                borderRadius: 8,
+                                                fontSize: 14,
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {relation}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Blood Group - Grid Layout */}
+                            <div style={{ marginBottom: 24 }}>
+                                <label style={{
+                                    display: 'block',
+                                    marginBottom: 8,
+                                    color: '#374151',
+                                    fontSize: 14,
+                                    fontWeight: 600
+                                }}>Blood Group</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                                    {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(blood => (
+                                        <button
+                                            key={blood}
+                                            type="button"
+                                            onClick={() => setNewProfile({ ...newProfile, blood_group: blood })}
+                                            style={{
+                                                padding: '12px',
+                                                background: newProfile.blood_group === blood ? '#14b8a6' : 'white',
+                                                color: newProfile.blood_group === blood ? 'white' : '#6b7280',
+                                                border: `2px solid ${newProfile.blood_group === blood ? '#14b8a6' : '#e5e7eb'}`,
+                                                borderRadius: 8,
+                                                fontSize: 14,
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {blood}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 12 }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddModal(false)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '14px',
+                                        background: 'white',
+                                        border: '2px solid #e5e7eb',
+                                        borderRadius: 8,
+                                        fontSize: 15,
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        color: '#6b7280',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.target.style.borderColor = '#9ca3af';
+                                        e.target.style.background = '#f9fafb';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.target.style.borderColor = '#e5e7eb';
+                                        e.target.style.background = 'white';
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={adding}
+                                    style={{
+                                        flex: 1,
+                                        padding: '14px',
+                                        background: adding ? '#9ca3af' : '#14b8a6',
+                                        border: 'none',
+                                        borderRadius: 8,
+                                        fontSize: 15,
+                                        fontWeight: 600,
+                                        cursor: adding ? 'not-allowed' : 'pointer',
+                                        color: 'white',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!adding) e.target.style.background = '#0f766e';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!adding) e.target.style.background = '#14b8a6';
+                                    }}
+                                >
+                                    {adding ? 'Adding...' : 'Save Profile'}
+                                </button>
                             </div>
                         </form>
                     </div>

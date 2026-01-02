@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { API_BASE } from '../config';
 
-export default function RxAnalyzer({ onBack }) {
+export default function RxAnalyzer({ onBack, currentUser, selectedProfile }) {
     const [selectedFile, setSelectedFile] = useState(null);
     const [preview, setPreview] = useState(null);
     const [analyzing, setAnalyzing] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
+    const [showSaveDialog, setShowSaveDialog] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     const handleFileSelect = (e) => {
         const file = e.target.files[0];
@@ -56,6 +58,7 @@ export default function RxAnalyzer({ onBack }) {
 
             if (data.success) {
                 setResult(data);
+                setShowSaveDialog(true); // Show save confirmation dialog
             } else {
                 setError(data.error || 'Failed to analyze prescription');
             }
@@ -67,11 +70,58 @@ export default function RxAnalyzer({ onBack }) {
         }
     };
 
+    const handleSaveToRecords = async () => {
+        setSaving(true);
+        try {
+            const saveData = {
+                user_id: currentUser.uid,
+                profile_id: selectedProfile?.id || currentUser.uid,
+                prescription_data: result
+            };
+
+            console.log('=== SAVE PRESCRIPTION DEBUG ===');
+            console.log('API_BASE:', API_BASE);
+            console.log('Full URL:', `${API_BASE}/save_prescription_record`);
+            console.log('Save data:', saveData);
+            console.log('User:', currentUser);
+            console.log('Selected Profile:', selectedProfile);
+
+            const response = await fetch(`${API_BASE}/save_prescription_record`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(saveData)
+            });
+
+            console.log('Response status:', response.status);
+            console.log('Response ok:', response.ok);
+
+            const data = await response.json();
+            console.log('Response data:', data);
+
+            if (data.success) {
+                alert('✅ Prescription saved to your records!');
+                setShowSaveDialog(false);
+            } else {
+                console.error('Save failed:', data);
+                alert('❌ Failed to save: ' + (data.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('=== SAVE ERROR ===');
+            console.error('Error:', err);
+            console.error('Error message:', err.message);
+            console.error('Error stack:', err.stack);
+            alert('❌ Failed to save prescription: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleReset = () => {
         setSelectedFile(null);
         setPreview(null);
         setResult(null);
         setError(null);
+        setShowSaveDialog(false);
     };
 
     return (
@@ -281,8 +331,62 @@ export default function RxAnalyzer({ onBack }) {
                         )}
                     </div>
 
+                    {/* Save Confirmation Dialog */}
+                    {showSaveDialog && (
+                        <div className="card" style={{
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            color: 'white',
+                            marginTop: 16
+                        }}>
+                            <h4 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 12px 0' }}>
+                                💾 Save to Records?
+                            </h4>
+                            <p style={{ fontSize: 14, margin: '0 0 16px 0', opacity: 0.95 }}>
+                                Would you like to save this prescription analysis to your medical records?
+                            </p>
+                            <div style={{ display: 'flex', gap: 12 }}>
+                                <button
+                                    onClick={() => setShowSaveDialog(false)}
+                                    disabled={saving}
+                                    style={{
+                                        flex: 1,
+                                        background: 'rgba(255, 255, 255, 0.2)',
+                                        color: 'white',
+                                        border: '2px solid rgba(255, 255, 255, 0.5)',
+                                        borderRadius: 8,
+                                        padding: '10px 16px',
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        cursor: saving ? 'not-allowed' : 'pointer',
+                                        opacity: saving ? 0.5 : 1
+                                    }}
+                                >
+                                    No, Don't Save
+                                </button>
+                                <button
+                                    onClick={handleSaveToRecords}
+                                    disabled={saving}
+                                    style={{
+                                        flex: 1,
+                                        background: 'white',
+                                        color: '#667eea',
+                                        border: 'none',
+                                        borderRadius: 8,
+                                        padding: '10px 16px',
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        cursor: saving ? 'not-allowed' : 'pointer',
+                                        opacity: saving ? 0.5 : 1
+                                    }}
+                                >
+                                    {saving ? '⏳ Saving...' : '✅ Yes, Save It'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Actions */}
-                    <div style={{ display: 'flex', gap: 12 }}>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
                         <button
                             onClick={handleReset}
                             className="cta-button secondary"
