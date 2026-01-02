@@ -9,15 +9,16 @@ import ChatView from './components/ChatView'
 import SlotView from './components/SlotView'
 import SummaryView from './components/SummaryView'
 
-import DoctorProfile from './components/DoctorProfile'
-import PharmacyMap from './components/PharmacyMap'
-import RecordsView from './components/RecordsView'
-import MedicationView from './components/MedicationView'
-import RxAnalyzer from './components/RxAnalyzer'
-import SymptomCheckerView from './components/SymptomCheckerView'
-import WelcomeAnimation from './components/WelcomeAnimation'
-import AuthView from './components/AuthView'
-import ProfileSelector from './components/ProfileSelector'
+import DoctorProfile from './components/DoctorProfile';
+import PharmacyMap from './components/PharmacyMap';
+import RecordsView from './components/RecordsView';
+import MedicationView from './components/MedicationView';
+import RxAnalyzer from './components/RxAnalyzer';
+import SymptomCheckerView from './components/SymptomCheckerView';
+import WelcomeAnimation from './components/WelcomeAnimation';
+import AuthView from './components/AuthView';
+import ProfileSelector from './components/ProfileSelector';
+import DoctorDashboard from './doctor/DoctorDashboard';
 
 function App() {
   // --- FIREBASE AUTH ---
@@ -44,7 +45,6 @@ function App() {
 
   const handleProfileSelect = (profile) => {
     setCurrentProfile(profile);
-    // You could also persist current profile to session storage if desired
   };
 
   const handleAnalyze = async (symptomText) => {
@@ -59,16 +59,13 @@ function App() {
       });
 
       const result = await response.json();
-      console.log("TRIAGE RESULT:", result); // Debug log
-      // alert(JSON.stringify(result)); // Uncomment if needed for extreme debugging
+      console.log("TRIAGE RESULT:", result);
       setTriageResult(result);
-      setInitialSymptom(symptomText); // Store for Chat input
+      setInitialSymptom(symptomText);
 
-      // ROUTING LOGIC
       if (result.is_emergency === true || result.is_emergency === 'true' || result.is_emergency === 'True') {
         handleNavigate('triage');
       } else {
-        // SAFE -> DIRECT TO CHAT
         handleNavigate('chat');
       }
 
@@ -98,7 +95,7 @@ function App() {
     return <ProfileSelector profiles={userProfiles} onSelect={handleProfileSelect} onLogout={handleLogout} />;
   }
 
-  // 4. MAIN DASHBOARD
+  // 5. MAIN PATIENT DASHBOARD
   const handleNavigate = (newView) => {
     setView(newView);
   }
@@ -110,7 +107,7 @@ function App() {
         <HomeView
           onAnalyze={handleAnalyze}
           onViewChange={handleNavigate}
-          userName={currentProfile.name} // Pass name to HomeView
+          userName={currentProfile.name}
           isAnalyzing={isAnalyzing}
         />
       )}

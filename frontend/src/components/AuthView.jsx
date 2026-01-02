@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-export default function AuthView({ onLoginSuccess }) {
+export default function AuthView({ onLoginSuccess, onDoctorLogin }) {
     const [isLogin, setIsLogin] = useState(true);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -418,6 +418,16 @@ export default function AuthView({ onLoginSuccess }) {
                             onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
                         >
                             {isLogin ? "Don't have an account? Sign Up →" : "Already have an account? Sign In →"}
+                        </button>
+                    </div>
+
+                    <div style={{ marginTop: 32, paddingTop: 16, borderTop: '1px solid #f1f5f9', textAlign: 'center' }}>
+                        <button
+                            type="button"
+                            onClick={onDoctorLogin}
+                            style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
+                        >
+                            Restricted: Doctor Login
                         </button>
                     </div>
                 </form>
