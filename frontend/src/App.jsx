@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import './index.css'
 import { API_BASE } from './config'
 import { useAuth } from './contexts/AuthContext'
+import { auth } from './firebase'
 import Layout from './components/Layout'
 import HomeView from './components/HomeView'
 import TriageView from './components/TriageView'
@@ -18,7 +19,8 @@ import SymptomCheckerView from './components/SymptomCheckerView';
 import WelcomeAnimation from './components/WelcomeAnimation';
 import AuthView from './components/AuthView';
 import ProfileSelector from './components/ProfileSelector';
-import DoctorDashboard from './doctor/DoctorDashboard';
+import DoctorDashboard from './components/DoctorDashboard';
+import DoctorLogin from './components/DoctorLogin';
 
 function App() {
   // --- FIREBASE AUTH ---
@@ -28,13 +30,18 @@ function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [currentProfile, setCurrentProfile] = useState(null);
   const [view, setView] = useState('home');
+
+  // --- DOCTOR STATE ---
+  const [doctorData, setDoctorData] = useState(null);
+
+  // --- TRIAGE STATE ---
   const [triageResult, setTriageResult] = useState(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [initialSymptom, setInitialSymptom] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // --- HANDLERS ---
-  const handleLoginSuccess = () => {
-    // Firebase handles user state automatically
+  const handleLoginSuccess = (userCredential) => {
+    console.log('Login successful');
   };
 
   const handleLogout = async () => {
@@ -47,36 +54,81 @@ function App() {
     setCurrentProfile(profile);
   };
 
-  const handleAnalyze = async (symptomText) => {
-    if (!symptomText.trim()) return;
-
+  const handleAnalyze = async (symptom) => {
     setIsAnalyzing(true);
+    setInitialSymptom(symptom);
+
     try {
       const response = await fetch(`${API_BASE}/triage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symptom_text: symptomText })
+        body: JSON.stringify({ symptoms: symptom })
       });
 
-      const result = await response.json();
-      console.log("TRIAGE RESULT:", result);
-      setTriageResult(result);
-      setInitialSymptom(symptomText);
+      const data = await response.json();
+      console.log('TRIAGE RESULT:', data);
+      setTriageResult(data);
 
-      if (result.is_emergency === true || result.is_emergency === 'true' || result.is_emergency === 'True') {
-        handleNavigate('triage');
+      // Route based on emergency status
+      if (data.is_emergency === true || data.is_emergency === 'true' || data.is_emergency === 'True') {
+        // EMERGENCY: Go to triage view (shows urgent booking)
+        setView('triage');
       } else {
-        handleNavigate('chat');
+        // NON-EMERGENCY: Go to chat view
+        setView('chat');
       }
-
     } catch (error) {
-      console.error("Analysis failed:", error);
-      alert("Failed to analyze symptoms. Please try again.");
+      console.error('Triage error:', error);
+      alert('Failed to analyze symptoms. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
   };
 
+  // Doctor login handler
+  const handleDoctorLogin = (doctor) => {
+    setDoctorData(doctor);
+  };
+
+  // Doctor logout handler
+  const handleDoctorLogout = async () => {
+    await auth.signOut();
+    setDoctorData(null);
+  };
+
+  // Check for authenticated doctor on mount (persist session)
+  useEffect(() => {
+    if (window.location.pathname === '/doctor') {
+      const unsubscribe = auth.onAuthStateChanged(async (user) => {
+        if (user) {
+          // User is logged in, check if they're a doctor
+          try {
+            const { doc, getDoc } = await import('firebase/firestore');
+            const { db } = await import('./firebase');
+
+            const doctorDoc = await getDoc(doc(db, 'doctors', user.uid));
+
+            if (doctorDoc.exists() && doctorDoc.data().role === 'doctor') {
+              console.log('✅ Doctor session restored:', doctorDoc.data().name);
+              // Ensure we include the UID in the doctor data
+              setDoctorData({ ...doctorDoc.data(), uid: user.uid });
+            } else {
+              // Not a doctor, just clear doctor data (don't sign out!)
+              setDoctorData(null);
+            }
+          } catch (error) {
+            console.error('Error checking doctor auth:', error);
+            setDoctorData(null);
+          }
+        } else {
+          // No user logged in
+          setDoctorData(null);
+        }
+      });
+
+      return () => unsubscribe();
+    }
+  }, []);
 
   // --- VIEW RENDERING ---
 
@@ -85,12 +137,20 @@ function App() {
     return <WelcomeAnimation onComplete={() => setShowSplash(false)} />;
   }
 
-  // 2. AUTH SCREEN (Login/Signup)
+  // 2. DOCTOR PORTAL ROUTE (accessible at /doctor)
+  if (window.location.pathname === '/doctor') {
+    if (!doctorData) {
+      return <DoctorLogin onLoginSuccess={handleDoctorLogin} />;
+    }
+    return <DoctorDashboard doctorData={doctorData} onLogout={handleDoctorLogout} />;
+  }
+
+  // 3. AUTH SCREEN (Login/Signup)
   if (!currentUser) {
     return <AuthView onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // 3. PROFILE SELECTOR (if no profile selected)
+  // 4. PROFILE SELECTOR (if no profile selected)
   if (!currentProfile) {
     return <ProfileSelector profiles={userProfiles} onSelect={handleProfileSelect} onLogout={handleLogout} />;
   }

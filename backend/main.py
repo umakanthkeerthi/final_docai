@@ -371,10 +371,11 @@ async def triage_endpoint(request: Request):
     """
     try:
         body = await request.json()
-        symptom_text = body.get("symptom_text", "")
+        # Handle multiple possible keys for robustness
+        symptom_text = body.get("symptoms") or body.get("symptom") or body.get("symptom_text", "")
         
         if not symptom_text:
-            raise HTTPException(status_code=400, detail="symptom_text is required")
+            raise HTTPException(status_code=400, detail="symptom_text or symptoms is required")
         
         # Analyze symptoms using triage service
         result = analyze_symptom(symptom_text)
@@ -553,6 +554,7 @@ class AppointmentCreate(BaseModel):
     user_id: str
     profile_id: str = None
     doctor_id: str
+    doctor_uid: str = None  # Firebase UID for doctor
     doctor_name: str
     doctor_specialty: str
     doctor_location: dict
@@ -572,6 +574,8 @@ async def book_appointment(appointment: AppointmentCreate):
     try:
         print(f"📅 Booking appointment request received")
         print(f"   Doctor: {appointment.doctor_name}")
+        print(f"   Doctor ID: {appointment.doctor_id}")
+        print(f"   Doctor UID: {appointment.doctor_uid}")
         print(f"   Date: {appointment.appointment_date}")
         print(f"   Time: {appointment.appointment_time}")
         print(f"   Urgent: {appointment.is_urgent}")
@@ -580,11 +584,18 @@ async def book_appointment(appointment: AppointmentCreate):
         prefix = "URG" if appointment.is_urgent else "CONF"
         confirmation_number = f"{prefix}-{int(time.time() * 1000) % 100000000}"
         
+        # Validate doctor_uid is present
+        if not appointment.doctor_uid:
+            print(f"⚠️ WARNING: doctor_uid is missing for appointment!")
+            print(f"   This appointment will not appear on doctor dashboard")
+            # Don't fail the request, but log it prominently
+        
         # Prepare appointment data
         appointment_data = {
             'user_id': appointment.user_id,
             'profile_id': appointment.profile_id,
             'doctor_id': appointment.doctor_id,
+            'doctor_uid': appointment.doctor_uid,  # Include Firebase UID
             'doctor_name': appointment.doctor_name,
             'doctor_specialty': appointment.doctor_specialty,
             'doctor_location': appointment.doctor_location,
@@ -676,6 +687,124 @@ async def update_status(appointment_id: str, status_update: AppointmentStatusUpd
             return {'success': True, 'message': 'Status updated successfully'}
         else:
             raise HTTPException(status_code=500, detail=result.get('error', 'Failed to update status'))
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error updating appointment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================
+# DOCTOR-SIDE ENDPOINTS
+# ============================================
+
+from firestore_service import get_doctor_appointments, get_incoming_records, update_appointment_with_notes, db
+
+@api_router.get("/doctor/uid/{doctor_id}")
+async def get_doctor_uid_endpoint(doctor_id: str):
+    """
+    Get Firebase UID for a doctor by their doctor_id
+    """
+    try:
+        if not db:
+            return {"success": False, "uid": None}
+        
+        # Query for doctor by doctor_id
+        docs = db.collection('doctors').where('doctor_id', '==', doctor_id).stream()
+        
+        for doc in docs:
+            return {"success": True, "uid": doc.id, "doctor_id": doctor_id}
+        
+        return {"success": False, "uid": None, "error": "Doctor not found"}
+    except Exception as e:
+        print(f"❌ Error fetching doctor UID: {e}")
+        return {"success": False, "uid": None, "error": str(e)}
+
+@api_router.get("/doctor/appointments/{doctor_id}")
+async def get_doctor_appts(doctor_id: str):
+    """
+    Get all appointments for a specific doctor
+    """
+    try:
+        print(f"📋 Fetching appointments for doctor: {doctor_id}")
+        
+        result = get_doctor_appointments(doctor_id)
+        
+        if result.get('success'):
+            print(f"✅ Returning {len(result['appointments'])} appointments")
+            return {
+                'success': True,
+                'appointments': result['appointments']
+            }
+        else:
+            # Return empty array if Firestore not available
+            print("⚠️ Firestore not available, returning empty")
+            return {
+                'success': True,
+                'appointments': []
+            }
+            
+    except Exception as e:
+        print(f"❌ Error fetching doctor appointments: {e}")
+        # Return empty array on error (graceful degradation)
+        return {
+            'success': True,
+            'appointments': []
+        }
+
+
+@api_router.get("/doctor/incoming_records")
+async def get_incoming_recs():
+    """
+    Get all incoming medical records for doctor review
+    """
+    try:
+        print(f"📋 Fetching incoming records")
+        
+        result = get_incoming_records()
+        
+        if result.get('success'):
+            print(f"✅ Returning {len(result['records'])} records")
+            return {
+                'success': True,
+                'records': result['records']
+            }
+        else:
+            # Return empty array if Firestore not available
+            print("⚠️ Firestore not available, returning empty")
+            return {
+                'success': True,
+                'records': []
+            }
+            
+    except Exception as e:
+        print(f"❌ Error fetching records: {e}")
+        # Return empty array on error (graceful degradation)
+        return {
+            'success': True,
+            'records': []
+        }
+
+
+@api_router.patch("/doctor/appointments/{appointment_id}")
+async def update_doctor_appt(appointment_id: str, update_data: dict):
+    """
+    Update appointment status and add notes (for doctor completing appointments)
+    """
+    try:
+        print(f"🔄 Doctor updating appointment {appointment_id}")
+        
+        status = update_data.get('status', 'completed')
+        notes = update_data.get('notes', '')
+        
+        result = update_appointment_with_notes(appointment_id, status, notes)
+        
+        if result.get('success'):
+            print(f"✅ Appointment updated")
+            return {'success': True, 'message': 'Appointment updated successfully'}
+        else:
+            raise HTTPException(status_code=500, detail=result.get('error', 'Failed to update'))
             
     except HTTPException:
         raise

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { API_BASE } from '../config';
 
 export default function SummaryView({ onHome, onBook }) {
-    const [summary, setSummary] = useState("Generating medical summary...");
+    const [summary, setSummary] = useState("");
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         // Fetch summary on mount
@@ -12,15 +13,44 @@ export default function SummaryView({ onHome, onBook }) {
             body: JSON.stringify({ session_id: 'guest' }) // In real app, pass actual ID
         })
             .then(res => res.json())
-            .then(data => setSummary(data.summary))
-            .catch(e => setSummary("Error generating summary."));
+            .then(data => {
+                setSummary(data.summary);
+                setIsLoading(false);
+            })
+            .catch(e => {
+                setSummary("Error generating summary.");
+                setIsLoading(false);
+            });
     }, []);
 
     return (
         <section className="view-section active-view">
             <h1 className="card-title">Consultation Summary</h1>
-            <div className="card" style={{ whiteSpace: 'pre-line', fontSize: 14, lineHeight: 1.6 }}>
-                {summary}
+            <div className="card" style={{ whiteSpace: 'pre-line', fontSize: 14, lineHeight: 1.6, minHeight: 120 }}>
+                {isLoading ? (
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 16,
+                        padding: '40px 20px'
+                    }}>
+                        <div style={{
+                            width: 48,
+                            height: 48,
+                            border: '4px solid #e2e8f0',
+                            borderTop: '4px solid var(--primary-teal)',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                        }}></div>
+                        <p style={{ color: 'var(--text-soft)', margin: 0 }}>
+                            Generating medical summary...
+                        </p>
+                    </div>
+                ) : (
+                    summary
+                )}
             </div>
 
             <div className="card" style={{ border: '1px solid var(--primary-teal)', background: 'var(--primary-teal-light)' }}>

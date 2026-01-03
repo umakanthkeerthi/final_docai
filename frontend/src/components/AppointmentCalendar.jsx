@@ -1,6 +1,27 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 import AppointmentConfirmation from './AppointmentConfirmation';
+
+// Helper function to get doctor's Firebase UID via API
+const getDoctorUid = async (doctorId) => {
+    try {
+        const response = await fetch(`http://localhost:8002/api/doctor/uid/${doctorId}`);
+        const data = await response.json();
+
+        if (data.success && data.uid) {
+            console.log(`✅ Got doctor UID for ${doctorId}:`, data.uid);
+            return data.uid;
+        }
+
+        console.error(`❌ Failed to get doctor UID for ${doctorId}:`, data.error);
+        return null;
+    } catch (error) {
+        console.error('❌ Error fetching doctor UID:', error);
+        return null;
+    }
+};
 
 // Mock available slots for the next 7 days
 const generateMockSlots = (isUrgent) => {
@@ -80,6 +101,25 @@ const generateMockSlots = (isUrgent) => {
 
 export default function AppointmentCalendar({ doctor, onBack, isUrgent }) {
     const { t } = useTranslation();
+
+
+    // Safety check - if no doctor provided, show error
+    if (!doctor) {
+        console.error('❌ AppointmentCalendar: doctor prop is required');
+        return (
+            <div className="card" style={{ padding: 20, textAlign: 'center' }}>
+                <p style={{ color: 'var(--error-red)' }}>Error: Doctor information not available</p>
+                <button className="cta-button" onClick={onBack} style={{ marginTop: 16 }}>
+                    Go Back
+                </button>
+            </div>
+        );
+    }
+
+    console.log('✅ AppointmentCalendar mounted successfully');
+    console.log('📋 Doctor:', doctor.name);
+    console.log('📋 isUrgent:', isUrgent);
+
     const [availableSlots] = useState(generateMockSlots(isUrgent));
 
     // Pre-select date based on urgency: today for urgent, tomorrow for non-urgent
@@ -109,6 +149,30 @@ export default function AppointmentCalendar({ doctor, onBack, isUrgent }) {
             const currentUser = { uid: 'guest' }; // Replace with actual auth
             const currentProfile = { id: 'default' }; // Replace with actual profile
 
+            // Fetch doctor's Firebase UID
+            // Direct access to Firebase UID from doctor object
+            console.log('🔍 Selected Doctor Object:', doctor);
+            console.log('🔍 Doctor has firebase_uid?', 'firebase_uid' in doctor);
+            console.log('🔍 firebase_uid value:', doctor.firebase_uid);
+
+            let doctorUid = doctor.firebase_uid;
+            console.log(`📋 Doctor UID from DB for ${doctor.name}:`, doctorUid);
+
+            // If doctor_uid is missing, try to get it from the API as fallback
+            if (!doctorUid) {
+                console.warn('⚠️ firebase_uid missing from doctor object, trying API fallback...');
+                doctorUid = await getDoctorUid(doctor.id);
+                console.log('📋 Got UID from API:', doctorUid);
+            }
+
+            // Final validation - MUST have doctor_uid
+            if (!doctorUid) {
+                console.error('❌ CRITICAL: Could not get doctor_uid!');
+                alert('System Error: Unable to link appointment to doctor. Please refresh the page and try again.');
+                return;
+            }
+            console.log('✅ Final doctor_uid to send:', doctorUid);
+
             const response = await fetch(`${API_BASE}/appointments/book`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -116,13 +180,15 @@ export default function AppointmentCalendar({ doctor, onBack, isUrgent }) {
                     user_id: currentUser.uid,
                     profile_id: currentProfile.id,
                     doctor_id: doctor.id,
+                    doctor_uid: doctorUid, // ← NEW: Firebase UID for doctor dashboard
                     doctor_name: doctor.name,
                     doctor_specialty: doctor.specialty,
                     doctor_location: doctor.location,
                     appointment_date: selectedDate,
                     appointment_time: selectedTime,
                     consultation_fee: doctor.consultation_fee,
-                    is_urgent: isUrgent || false
+                    is_urgent: isUrgent || false,
+                    status: 'confirmed'
                 })
             });
 
@@ -132,9 +198,12 @@ export default function AppointmentCalendar({ doctor, onBack, isUrgent }) {
                 // Update booking with real confirmation number from backend
                 booking.confirmationNumber = data.confirmation_number;
             } else {
-                console.log('⚠️ Firebase save failed, using local confirmation');
+                const errorText = await response.text();
+                console.error('❌ Firebase save failed:', response.status, errorText);
+                console.log('⚠️ Continuing with local confirmation');
             }
         } catch (error) {
+            console.error('❌ Appointment booking error:', error);
             console.log('⚠️ Firebase unavailable, continuing with mock data');
         }
 

@@ -214,6 +214,7 @@ def save_appointment(appointment_data):
             "user_id": str(appointment_data.get('user_id')),
             "profile_id": str(appointment_data.get('profile_id')) if appointment_data.get('profile_id') else None,
             "doctor_id": appointment_data.get('doctor_id'),
+            "doctor_uid": appointment_data.get('doctor_uid'),  # ← CRITICAL: Firebase UID for doctor dashboard
             "doctor_name": appointment_data.get('doctor_name'),
             "doctor_specialty": appointment_data.get('doctor_specialty'),
             "doctor_location": appointment_data.get('doctor_location'),
@@ -325,3 +326,115 @@ def update_appointment_status(appointment_id, status):
     except Exception as e:
         print(f"❌ Error updating appointment: {e}")
         return {"success": False, "error": str(e)}
+
+
+# ============================================
+# DOCTOR-SIDE FUNCTIONS
+# ============================================
+
+def get_doctor_appointments(doctor_uid):
+    """
+    Get all appointments for a specific doctor by their Firebase UID
+    """
+    try:
+        if not db:
+            print("⚠️ Firestore not available")
+            return {"success": False, "error": "Firestore not configured"}
+        
+        print(f"📋 Fetching appointments for doctor UID: {doctor_uid}")
+        
+        # Query appointments by doctor_uid (Firebase UID)
+        query = db.collection('appointments').where('doctor_uid', '==', str(doctor_uid))
+        
+        # Get documents
+        docs = query.stream()
+        
+        appointments = []
+        for doc in docs:
+            data = doc.to_dict()
+            data['id'] = doc.id  # Add document ID
+            appointments.append(data)
+        
+        print(f"✅ Found {len(appointments)} appointments for doctor")
+        
+        # Sort by date and time
+        appointments.sort(key=lambda x: (x.get('appointment_date', ''), x.get('appointment_time', '')))
+        
+        return {
+            "success": True,
+            "appointments": appointments
+        }
+        
+    except Exception as e:
+        print(f"❌ Error fetching doctor appointments: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+def get_incoming_records():
+    """
+    Get all incoming medical records that need doctor review
+    """
+    try:
+        if not db:
+            print("⚠️ Firestore not available")
+            return {"success": False, "error": "Firestore not configured"}
+        
+        print(f"📋 Fetching incoming records for review")
+        
+        # Query records collection
+        query = db.collection('records').order_by('created_at', direction='DESCENDING').limit(50)
+        
+        # Get documents
+        docs = query.stream()
+        
+        records = []
+        for doc in docs:
+            data = doc.to_dict()
+            # Add category and AI status info
+            if 'type' in data:
+                data['category'] = data['type']
+            data['ai_status'] = 'success'  # Default, can be enhanced
+            records.append(data)
+        
+        print(f"✅ Found {len(records)} records")
+        
+        return {
+            "success": True,
+            "records": records
+        }
+        
+    except Exception as e:
+        print(f"❌ Error fetching records: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+def update_appointment_with_notes(appointment_id, status, notes):
+    """
+    Update appointment status and add consultation notes
+    """
+    try:
+        if not db:
+            print("⚠️ Firestore not available")
+            return {"success": False, "error": "Firestore not configured"}
+        
+        print(f"🔄 Updating appointment {appointment_id} with notes")
+        
+        # Update document
+        db.collection('appointments').document(appointment_id).update({
+            'status': status,
+            'consultation_notes': notes,
+            'completed_at': datetime.now().isoformat() if status == 'completed' else None,
+            'updated_at': datetime.now().isoformat()
+        })
+        
+        print(f"✅ Appointment updated with notes")
+        return {"success": True}
+        
+    except Exception as e:
+        print(f"❌ Error updating appointment: {e}")
+        return {"success": False, "error": str(e)}
+

@@ -71,7 +71,9 @@ def analyze_symptom(text: str):
     # Manually check for high-risk keywords to ensure safety regardless of LLM response
     critical_keywords = [
         "chest pain", "heart attack", "can't breathe", "breathless", 
-        "stroke", "numbness", "unconscious", "head injury", "bleeding"
+        "stroke", "numbness", "unconscious", "head injury", "bleeding",
+        "suicide", "poison", "overdose", "vision loss", "seizure", 
+        "slurred speech", "paralysis", "severe pain", "crushing"
     ]
     
     # SIMPLIFIED CHECK: Check if any keyword is simply present in the text
@@ -80,21 +82,23 @@ def analyze_symptom(text: str):
     
     # --- 2. LLM ANALYSIS ---
     system_prompt = f"""
-    You are an expert Medical Triage AI.
-    Compare User Input against these EMERGENCY RULES:
+    You are an expert Medical Triage AI. Your PRIMARY DIRECTIVE is to detect emergencies based on the provided EMERGENCY RULES.
+    
+    EMERGENCY RULES (STRICT ENFORCEMENT REQUIRED):
     {json.dumps(EMERGENCY_RULES)}
 
     INSTRUCTIONS:
-    1. Check if symptoms match ANY condition in the list.
-    2. SAFETY FIRST: If the user mentions "Chest Pain", "Breathing Difficulty", or "Stroke" symptoms, YOU MUST RETURN is_emergency: true.
-    3. Respond VALID JSON only.
+    1. Compare user input against the EMERGENCY RULES.
+    2. If the symptoms resemble ANY condition in the rules (even partially), you MUST set "is_emergency": true.
+    3. Better to be safe: If unsure, mark as emergency.
+    4. Provide the exact name of the matched condition from the rules.
     
     JSON FORMAT:
     {{
         "is_emergency": boolean,
         "matched_condition": "Name of condition or null",
         "action": "Recommended action",
-        "reason": "Brief explanation",
+        "reason": "Explain WHY it matches the rule",
         "category": "Category Name or null"
     }}
     """
@@ -119,17 +123,18 @@ def analyze_symptom(text: str):
             result["is_emergency"] = True
             result["matched_condition"] = "Detected Critical Symptom (Safety Override)"
             result["action"] = "Immediate Medical Attention"
-            result["reason"] = "Symptom matches critical emergency keyword list."
+            result["reason"] = f"detected keyword: '{text}' matched critical safety list."
         
         # Add correlation data to result
         if correlation_data:
             result["correlation_analysis"] = correlation_data
         
-        # Add RAG-based detailed analysis
+        # Add RAG-based detailed analysis (APPEND, DO NOT OVERWRITE)
         rag_summary = generate_rag_summary(text)
         if rag_summary:
-            # Enhance the reason with RAG insights
-            result["reason"] = rag_summary
+            # Append RAG insights to the existing reason
+            current_reason = result.get("reason", "")
+            result["reason"] = f"{current_reason} | Clinical Context: {rag_summary}"
         
         return result
 

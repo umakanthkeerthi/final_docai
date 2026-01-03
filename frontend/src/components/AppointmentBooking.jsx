@@ -1,107 +1,33 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 import AppointmentCalendar from './AppointmentCalendar';
 import AppointmentConfirmation from './AppointmentConfirmation';
 import UrgentAppointmentModal from './UrgentAppointmentModal';
+import { DOCTORS_DATABASE } from '../data/doctors';
 
-// Mock doctor data
-const MOCK_DOCTORS = [
-    {
-        id: 'doc_1',
-        name: 'Dr. Sarah Chen',
-        specialty: 'Primary Care',
-        qualifications: 'MD, MBBS',
-        experience_years: 12,
-        rating: 4.8,
-        review_count: 245,
-        languages: ['English', 'Hindi'],
-        consultation_fee: 500,
-        profile_image: '👩‍⚕️',
-        location: {
-            address: 'Apollo Hospital, Jubilee Hills',
-            city: 'Hyderabad',
-            distance_km: 2.3
-        },
-        next_available: '2026-01-04',
-        today_slots: ['14:30', '16:00'] // Available today
-    },
-    {
-        id: 'doc_2',
-        name: 'Dr. Rajesh Kumar',
-        specialty: 'Cardiology',
-        qualifications: 'MD, DM Cardiology',
-        experience_years: 18,
-        rating: 4.9,
-        review_count: 412,
-        languages: ['English', 'Hindi', 'Telugu'],
-        consultation_fee: 800,
-        profile_image: '👨‍⚕️',
-        location: {
-            address: 'Care Hospital, Banjara Hills',
-            city: 'Hyderabad',
-            distance_km: 3.5
-        },
-        next_available: '2026-01-04',
-        today_slots: ['15:00'] // Available today
-    },
-    {
-        id: 'doc_3',
-        name: 'Dr. Priya Sharma',
-        specialty: 'Dermatology',
-        qualifications: 'MD Dermatology',
-        experience_years: 8,
-        rating: 4.7,
-        review_count: 189,
-        languages: ['English', 'Hindi'],
-        consultation_fee: 600,
-        profile_image: '👩‍⚕️',
-        location: {
-            address: 'Yashoda Hospital, Malakpet',
-            city: 'Hyderabad',
-            distance_km: 4.2
-        },
-        next_available: '2026-01-05',
-        today_slots: [] // No slots today
-    },
-    {
-        id: 'doc_4',
-        name: 'Dr. Anil Reddy',
-        specialty: 'Orthopedics',
-        qualifications: 'MS Orthopedics',
-        experience_years: 15,
-        rating: 4.6,
-        review_count: 298,
-        languages: ['English', 'Telugu', 'Hindi'],
-        consultation_fee: 700,
-        profile_image: '👨‍⚕️',
-        location: {
-            address: 'KIMS Hospital, Secunderabad',
-            city: 'Hyderabad',
-            distance_km: 5.1
-        },
-        next_available: '2026-01-04',
-        today_slots: ['17:00', '18:30'] // Available today
-    },
-    {
-        id: 'doc_5',
-        name: 'Dr. Meera Patel',
-        specialty: 'Pediatrics',
-        qualifications: 'MD Pediatrics',
-        experience_years: 10,
-        rating: 4.9,
-        review_count: 356,
-        languages: ['English', 'Hindi', 'Gujarati'],
-        consultation_fee: 550,
-        profile_image: '👩‍⚕️',
-        location: {
-            address: 'Rainbow Hospital, LB Nagar',
-            city: 'Hyderabad',
-            distance_km: 6.8
-        },
-        next_available: '2026-01-05',
-        today_slots: ['16:30'] // Available today
+// Use comprehensive doctor database
+const MOCK_DOCTORS = DOCTORS_DATABASE;
+
+// Helper function to get doctor's Firebase UID via API
+const getDoctorUid = async (doctorId) => {
+    try {
+        const response = await fetch(`http://localhost:8002/api/doctor/uid/${doctorId}`);
+        const data = await response.json();
+
+        if (data.success && data.uid) {
+            console.log(`✅ Got doctor UID for ${doctorId}:`, data.uid);
+            return data.uid;
+        }
+
+        console.error(`❌ Failed to get doctor UID for ${doctorId}:`, data.error);
+        return null;
+    } catch (error) {
+        console.error('❌ Error fetching doctor UID:', error);
+        return null;
     }
-];
+};
 
 const SPECIALTIES = [
     'All Specialties',
@@ -207,6 +133,11 @@ export default function AppointmentBooking({ onBack, triageResult, isUrgent }) {
 
     // Handle modal confirmation
     const handleConfirmUrgent = async () => {
+        console.log('🚀 handleConfirmUrgent called');
+        console.log('🚀 selectedDoctor:', selectedDoctor);
+        console.log('🚀 selectedDoctor.id:', selectedDoctor?.id);
+        console.log('🚀 selectedDoctor.firebase_uid:', selectedDoctor?.firebase_uid);
+
         const today = new Date();
         const booking = {
             doctor: selectedDoctor,
@@ -221,21 +152,51 @@ export default function AppointmentBooking({ onBack, triageResult, isUrgent }) {
             const currentUser = { uid: 'guest' }; // Replace with actual auth
             const currentProfile = { id: 'default' }; // Replace with actual profile
 
+            // Fetch doctor's Firebase UID
+            // Direct access to Firebase UID from doctor object
+            console.log('🔍 Selected Doctor Object:', selectedDoctor);
+            console.log('🔍 Doctor has firebase_uid?', 'firebase_uid' in selectedDoctor);
+            console.log('🔍 firebase_uid value:', selectedDoctor.firebase_uid);
+
+            let doctorUid = selectedDoctor.firebase_uid;
+            console.log(`📋 Doctor UID from DB for ${selectedDoctor.name}:`, doctorUid);
+
+            // If doctor_uid is missing, try to get it from the API as fallback
+            if (!doctorUid) {
+                console.warn('⚠️ firebase_uid missing from doctor object, trying API fallback...');
+                doctorUid = await getDoctorUid(selectedDoctor.id);
+                console.log('📋 Got UID from API:', doctorUid);
+            }
+
+            // Final validation - MUST have doctor_uid
+            if (!doctorUid) {
+                console.error('❌ CRITICAL: Could not get doctor_uid!');
+                alert('System Error: Unable to link appointment to doctor. Please refresh the page and try again.');
+                return;
+            }
+            console.log('✅ Final doctor_uid to send:', doctorUid);
+
+            const requestBody = {
+                user_id: currentUser.uid,
+                profile_id: currentProfile.id,
+                doctor_id: selectedDoctor.id,
+                doctor_uid: doctorUid, // ← NEW: Firebase UID for doctor dashboard
+                doctor_name: selectedDoctor.name,
+                doctor_specialty: selectedDoctor.specialty,
+                doctor_location: selectedDoctor.location,
+                appointment_date: booking.date,
+                appointment_time: booking.time,
+                consultation_fee: selectedDoctor.consultation_fee,
+                is_urgent: true,
+                status: 'confirmed'
+            };
+
+            console.log('📤 Sending appointment request:', JSON.stringify(requestBody, null, 2));
+
             const response = await fetch(`${API_BASE}/appointments/book`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    user_id: currentUser.uid,
-                    profile_id: currentProfile.id,
-                    doctor_id: selectedDoctor.id,
-                    doctor_name: selectedDoctor.name,
-                    doctor_specialty: selectedDoctor.specialty,
-                    doctor_location: selectedDoctor.location,
-                    appointment_date: booking.date,
-                    appointment_time: booking.time,
-                    consultation_fee: selectedDoctor.consultation_fee,
-                    is_urgent: true
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (response.ok) {
@@ -244,9 +205,12 @@ export default function AppointmentBooking({ onBack, triageResult, isUrgent }) {
                 // Update booking with real confirmation number from backend
                 booking.confirmationNumber = data.confirmation_number;
             } else {
-                console.log('⚠️ Firebase save failed, using local confirmation');
+                const errorText = await response.text();
+                console.error('❌ Firebase save failed:', response.status, errorText);
+                console.log('⚠️ Continuing with local confirmation');
             }
         } catch (error) {
+            console.error('❌ Appointment booking error:', error);
             console.log('⚠️ Firebase unavailable, continuing with mock data');
         }
 
@@ -451,10 +415,10 @@ export default function AppointmentBooking({ onBack, triageResult, isUrgent }) {
                                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                         <circle cx="12" cy="10" r="3" />
                                     </svg>
-                                    {doctor.location.distance_km} km away
+                                    {doctor.location.distance}
                                 </div>
                                 <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>
-                                    {doctor.location.address}
+                                    {doctor.location.hospital}, {doctor.location.area}
                                 </div>
                             </div>
 
