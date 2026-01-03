@@ -9,6 +9,8 @@
     display: flex;
     background-color: #f8fafc;
     color: #334155;
+    overflow: hidden;
+    /* Prevent body scroll if content overflows */
 }
 
 /* SIDEBAR */
@@ -19,6 +21,8 @@
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 50;
 }
 
 .logo-area {
@@ -29,6 +33,7 @@
     color: #0f766e;
     font-weight: 700;
     font-size: 18px;
+    position: relative;
 }
 
 .logo-icon {
@@ -99,6 +104,52 @@
     background-color: #f59e0b;
 }
 
+/* MOBILE ELEMENTS */
+.mobile-menu-btn {
+    display: none;
+    /* Hidden on desktop */
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #64748b;
+}
+
+.mobile-close-btn {
+    display: none;
+    /* Hidden on desktop */
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.mobile-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+    backdrop-filter: blur(2px);
+}
+
+.mobile-brand {
+    display: none;
+    /* Hidden on desktop */
+    font-size: 16px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-left: 8px;
+}
+
 /* MAIN CONTENT */
 #main-content {
     flex: 1;
@@ -106,6 +157,7 @@
     flex-direction: column;
     overflow: hidden;
     background: #f8fafc;
+    position: relative;
 }
 
 /* TOP HEADER */
@@ -117,12 +169,17 @@ header {
     align-items: center;
     justify-content: space-between;
     padding: 0 32px;
+    flex-shrink: 0;
+    /* Prevent header shrink */
 }
 
 .header-title {
     font-weight: 700;
     font-size: 16px;
     color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .user-profile {
@@ -154,6 +211,111 @@ header {
     overflow: hidden;
 }
 
+/* PROFILE DROPDOWN */
+.profile-dropdown {
+    position: fixed;
+    /* Changed from absolute to fixed to avoid clipping */
+    top: 60px;
+    /* Below the 64px header */
+    right: 24px;
+    width: 250px;
+    height: auto;
+    /* Fit to content */
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+    z-index: 1000;
+    /* Ensure high z-index */
+    overflow: hidden;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dropdown-header {
+    padding: 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.dropdown-avatar {
+    width: 40px;
+    height: 40px;
+    background: #0d9488;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.dropdown-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: #1e293b;
+}
+
+.dropdown-role {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.dropdown-details {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.detail-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #475569;
+}
+
+.dropdown-action {
+    padding: 8px 16px 16px;
+}
+
+.btn-logout-full {
+    width: 100%;
+    padding: 10px;
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.btn-logout-full:hover {
+    background: #fee2e2;
+}
+
 .btn-bell {
     background: white;
     border: 1px solid #e2e8f0;
@@ -167,33 +329,13 @@ header {
     color: #64748b;
 }
 
-.btn-logout {
-    background: white;
-    border: 1px solid #e2e8f0;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: #64748b;
-    font-size: 18px;
-    transition: all 0.2s;
-}
-
-.btn-logout:hover {
-    background: #fef2f2;
-    border-color: #fecaca;
-    color: #dc2626;
-}
-
 /* PAGES */
 .page-view {
     /* React handles display logic */
     flex: 1;
     padding: 32px;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .page-header {
@@ -201,6 +343,8 @@ header {
     justify-content: space-between;
     align-items: flex-end;
     margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
 }
 
 .page-title {
@@ -254,12 +398,16 @@ header {
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
     border: 1px solid #e2e8f0;
     overflow: hidden;
+    overflow-x: auto;
+    /* Allow horizontal scroll */
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
+    min-width: 600px;
+    /* Ensure table doesn't squish */
 }
 
 th {
@@ -270,6 +418,7 @@ th {
     color: #94a3b8;
     text-transform: uppercase;
     border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
 }
 
 td {
@@ -278,6 +427,7 @@ td {
     vertical-align: top;
     font-size: 14px;
     color: #334155;
+    white-space: nowrap;
 }
 
 tr:last-child td {
@@ -297,6 +447,8 @@ tr:last-child td {
     font-size: 12px;
     border: 1px solid #e2e8f0;
     max-width: 400px;
+    white-space: normal;
+    /* Allow text wrap in summary */
 }
 
 .alert-text {
@@ -313,6 +465,7 @@ tr:last-child td {
     font-size: 13px;
     cursor: pointer;
     border: none;
+    white-space: nowrap;
 }
 
 .btn-primary {
@@ -394,4 +547,312 @@ tr:last-child td {
     border-top-right-radius: 4px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     max-width: 70%;
+}
+
+/* MOBILE CARD LIST STYLES */
+.mobile-appointment-list {
+    display: none;
+    /* Hidden on desktop */
+}
+
+.mobile-appt-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.mobile-card-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #f8fafc;
+}
+
+.mobile-card-row:last-child {
+    border-bottom: none;
+}
+
+.mobile-label {
+    font-weight: 600;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.mobile-value {
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: right;
+}
+
+.mobile-card-actions {
+    margin-top: 12px;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.no-data-mobile {
+    text-align: center;
+    padding: 24px;
+    color: #94a3b8;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+/* APPOINTMENT CARD STYLES */
+.appt-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+}
+
+.appt-time {
+    font-size: 18px;
+    font-weight: 700;
+    color: #334155;
+    min-width: 80px;
+}
+
+.appt-details {
+    flex: 1;
+}
+
+.appt-patient {
+    font-weight: 600;
+    font-size: 16px;
+    color: #0f172a;
+}
+
+.appt-subtext {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.badge-urgent {
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 8px;
+}
+
+.appt-status {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-confirmed {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-pending {
+    /* Fallback */
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+/* =========================================
+   RESPONSIVE DESIGN (MEDIA QUERIES)
+   ========================================= */
+
+@media (max-width: 1024px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+
+    /* MOBILE NAVIGATION */
+    #sidebar {
+        position: fixed;
+        left: -260px;
+        /* Hide off-screen */
+        top: 0;
+        bottom: 0;
+        height: 100vh;
+        /* Full viewport height */
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    }
+
+    #sidebar.open {
+        transform: translateX(260px);
+    }
+
+    .mobile-menu-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        /* Touch target */
+        height: 44px;
+    }
+
+    .mobile-close-btn {
+        display: block;
+    }
+
+    .mobile-overlay {
+        display: block;
+    }
+
+    /* HEADER */
+    header {
+        padding: 0 12px;
+        height: 60px;
+    }
+
+    .header-title {
+        display: none;
+        /* Hide title on mobile as requested */
+    }
+
+    .mobile-brand {
+        display: block;
+        /* Show brand on mobile */
+    }
+
+    .btn-bell {
+        display: none;
+        /* Hide notification bell on mobile */
+    }
+
+    .user-info {
+        display: none;
+        /* Hide name/role on mobile to save space */
+    }
+
+    .user-profile {
+        gap: 8px;
+        margin-left: auto;
+        /* Push to right */
+    }
+
+    /* PROFILE DROPDOWN ON MOBILE */
+    .profile-dropdown {
+        top: 60px;
+        /* Match header height */
+        right: 12px;
+        /* Small margin from right edge */
+        width: 250px;
+        /* Slightly wider for better readability */
+        height: auto !important;
+        /* Force auto height */
+        min-height: 0 !important;
+        bottom: auto !important;
+        padding-bottom: 0 !important;
+    }
+
+    /* LAYOUT CONTENT */
+    .page-view {
+        padding: 16px;
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .page-title {
+        font-size: 20px;
+    }
+
+    /* GRIDS */
+    .stats-grid {
+        grid-template-columns: 1fr;
+        /* Stack vertically by default on mobile */
+        gap: 16px;
+    }
+
+    /* TABLES responsive: Hide table, show card list */
+    .table-container {
+        display: none !important;
+    }
+
+    /* Show the mobile list */
+    .mobile-appointment-list {
+        display: block;
+    }
+
+    /* CARDS */
+    .doctor-app .card {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 12px !important;
+    }
+
+    .doctor-app .card>div {
+        width: 100%;
+    }
+
+    /* MESSAGES */
+    .doctor-app .page-view[style*="flex-direction: column"]>div {
+        flex-direction: column !important;
+    }
+
+    .msg-sidebar {
+        width: 100%;
+        height: 200px;
+        /* Show list at top */
+        border-right: none;
+        border-bottom: 1px solid #e2e8f0;
+    }
+}
+
+/* Extra small screens (Phones) */
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+        /* Ensure single column */
+    }
+
+    .stat-card {
+        padding: 16px;
+    }
+
+    .stat-value {
+        font-size: 24px;
+    }
+
+    .page-title {
+        font-size: 18px;
+    }
+
+    /* Shrink appointment cards on mobile */
+    .appt-card {
+        padding: 16px;
+        /* Increased padding for better breathing room */
+        gap: 16px;
+    }
+
+    .appt-time {
+        font-size: 14px;
+        min-width: 60px;
+    }
+
+    .appt-patient {
+        font-size: 14px;
+    }
+
+    .appt-subtext {
+        font-size: 11px;
+    }
+
+    .appt-status {
+        padding: 2px 8px;
+        font-size: 10px;
+    }
 }

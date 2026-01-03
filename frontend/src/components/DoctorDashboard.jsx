@@ -142,13 +142,35 @@ export default function DoctorDashboard({ doctorData, onLogout }) {
         });
     };
 
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+    // Close mobile menu when view changes
+    useEffect(() => {
+        setMobileMenuOpen(false);
+    }, [view]);
+
     return (
         <div className="doctor-app">
+            {/* OVERLAY */}
+            {mobileMenuOpen && (
+                <div
+                    className="mobile-overlay"
+                    onClick={() => setMobileMenuOpen(false)}
+                />
+            )}
+
             {/* SIDEBAR */}
-            <div id="sidebar">
+            <div id="sidebar" className={mobileMenuOpen ? 'open' : ''}>
                 <div className="logo-area">
                     <div className="logo-icon">+</div>
                     <div>DocAI Provider</div>
+                    <button
+                        className="mobile-close-btn"
+                        onClick={() => setMobileMenuOpen(false)}
+                    >
+                        ✕
+                    </button>
                 </div>
 
                 <div className="nav-section">
@@ -164,39 +186,92 @@ export default function DoctorDashboard({ doctorData, onLogout }) {
                     </div> */}
                 </div>
 
-                {/* 
+                {/*
                 <div className="nav-section">
                     <div className="nav-label">Administrative</div>
                     <div className={`nav-item ${view === 'records' ? 'active' : ''}`} onClick={() => setView('records')}>
                         <span className="nav-icon">📄</span> Incoming Records
                         <span className="badge badge-amber" style={{ marginLeft: 'auto' }}>{records.length}</span>
                     </div>
-                </div> 
+                </div>
                 */}
             </div>
 
             {/* MAIN CONTENT */}
             <div id="main-content">
                 <header>
-                    <div className="header-title">
-                        {view === 'dashboard' && "Dashboard Overview"}
-                        {view === 'appointments' && "Calendar & Scheduling"}
-                        {view === 'messages' && "Patient Messages"}
-                        {view === 'records' && "Records for Review"}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <button
+                            className="mobile-menu-btn"
+                            onClick={() => setMobileMenuOpen(true)}
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <line x1="3" y1="12" x2="21" y2="12"></line>
+                                <line x1="3" y1="6" x2="21" y2="6"></line>
+                                <line x1="3" y1="18" x2="21" y2="18"></line>
+                            </svg>
+                        </button>
+
+                        {/* Mobile Brand Name */}
+                        <div className="mobile-brand">
+                            <span style={{ color: '#0d9488', fontWeight: 'bold' }}>DocAI</span> Provider
+                        </div>
+
+                        <div className="header-title">
+                            {view === 'dashboard' && "Dashboard Overview"}
+                            {view === 'appointments' && "Calendar & Scheduling"}
+                            {view === 'messages' && "Patient Messages"}
+                            {view === 'records' && "Records for Review"}
+                        </div>
                     </div>
-                    <div className="user-profile">
-                        <button className="btn-bell">🔔</button>
-                        <div className="user-info">
-                            <div className="user-name">{doctorData?.name || 'Doctor'}</div>
-                            <div className="user-role">{doctorData?.specialty || 'Specialist'}</div>
+
+                    <div className="user-profile" style={{ position: 'relative' }}>
+                        <div
+                            className="avatar-container"
+                            onClick={() => setShowProfileMenu(!showProfileMenu)}
+                            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
+                        >
+                            <div className="user-info">
+                                <div className="user-name">{doctorData?.name || 'Doctor'}</div>
+                                <div className="user-role">{doctorData?.specialty || 'Specialist'}</div>
+                            </div>
+                            <div className="avatar">
+                                <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(doctorData?.name || 'Doctor')}&background=0d9488&color=fff`} alt="User" style={{ width: '100%' }} />
+                            </div>
                         </div>
-                        <div className="avatar">
-                            <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(doctorData?.name || 'Doctor')}&background=0d9488&color=fff`} alt="User" style={{ width: '100%' }} />
-                        </div>
-                        {onLogout && (
-                            <button onClick={onLogout} className="btn-logout" title="Logout">
-                                ⎋
-                            </button>
+
+                        {/* Profile Dropdown Menu */}
+                        {showProfileMenu && (
+                            <>
+                                <div
+                                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 90 }}
+                                    onClick={() => setShowProfileMenu(false)}
+                                />
+                                <div className="profile-dropdown">
+                                    <div className="dropdown-header">
+                                        <div className="dropdown-avatar">
+                                            {doctorData?.name?.[0] || 'D'}
+                                        </div>
+                                        <div>
+                                            <div className="dropdown-name">{doctorData?.name || 'Doctor'}</div>
+                                            <div className="dropdown-role">{doctorData?.specialty || 'Specialist'}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="dropdown-details">
+                                        <div className="detail-row">
+                                            <span>📍</span> {doctorData?.location?.address || 'Hyderabad, India'}
+                                        </div>
+                                        {/* Add more details here if needed */}
+                                    </div>
+
+                                    <div className="dropdown-action">
+                                        <button onClick={onLogout} className="btn-logout-full">
+                                            <span>⎋</span> Logout
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
                         )}
                     </div>
                 </header>
@@ -209,7 +284,7 @@ export default function DoctorDashboard({ doctorData, onLogout }) {
                             <div className="pending-count">{new Date().toDateString()}</div>
                         </div>
 
-                        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                        <div className="stats-grid">
                             <div className="stat-card">
                                 <div className="stat-label">Total Appointments</div>
                                 <div className="stat-value">{appointments.length}</div>
@@ -220,8 +295,8 @@ export default function DoctorDashboard({ doctorData, onLogout }) {
                             </div>
                         </div>
 
-                        <div className="table-container">
-                            <div style={{ padding: 16, borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>
+                        <div className="table-container header-hidden-on-mobile">
+                            <div className="desktop-table-header" style={{ padding: 16, borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>
                                 Appointment Queue
                             </div>
                             <table>
@@ -232,7 +307,19 @@ export default function DoctorDashboard({ doctorData, onLogout }) {
                                             <td>{a.appointment_time}</td>
                                             <td>{a.doctor_name || 'Walk-in'}</td>
                                             <td>{a.doctor_specialty || 'Routine Checkup'}</td>
-                                            <td><span style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: 4, fontSize: 11 }}>{a.status.toUpperCase()}</span></td>
+                                            <td>
+                                                <span style={{
+                                                    background: a.status === 'confirmed' ? '#dcfce7' : '#f1f5f9',
+                                                    color: a.status === 'confirmed' ? '#166534' : '#64748b',
+                                                    padding: '4px 8px',
+                                                    borderRadius: 4,
+                                                    fontSize: 11,
+                                                    fontWeight: 600,
+                                                    display: 'inline-block'
+                                                }}>
+                                                    {a.status.toUpperCase()}
+                                                </span>
+                                            </td>
                                             <td>
                                                 {a.status === 'confirmed' && (
                                                     <button className="btn-action btn-primary" onClick={() => handleCompleteAppt(a.id)}>Mark Done</button>
@@ -243,6 +330,50 @@ export default function DoctorDashboard({ doctorData, onLogout }) {
                                     {appointments.length === 0 && <tr><td colSpan="5" style={{ padding: 20, textAlign: 'center' }}>No appointments.</td></tr>}
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* MOBILE ONLY CARD LIST */}
+                        <div className="mobile-appointment-list">
+                            <div style={{ padding: '0 0 16px', fontWeight: 600, color: '#0f172a' }}>
+                                Appointment Queue
+                            </div>
+                            {appointments.map(a => (
+                                <div key={a.id} className="mobile-appt-card">
+                                    <div className="mobile-card-row">
+                                        <span className="mobile-label">Time</span>
+                                        <span className="mobile-value">{a.appointment_time}</span>
+                                    </div>
+                                    <div className="mobile-card-row">
+                                        <span className="mobile-label">Patient</span>
+                                        <span className="mobile-value">{a.doctor_name || 'Walk-in'}</span>
+                                    </div>
+                                    <div className="mobile-card-row">
+                                        <span className="mobile-label">Reason</span>
+                                        <span className="mobile-value">{a.doctor_specialty || 'Routine Checkup'}</span>
+                                    </div>
+                                    <div className="mobile-card-row">
+                                        <span className="mobile-label">Status</span>
+                                        <span className="mobile-value">
+                                            <span style={{
+                                                background: a.status === 'confirmed' ? '#dcfce7' : '#f1f5f9',
+                                                color: a.status === 'confirmed' ? '#166534' : '#64748b',
+                                                padding: '2px 8px',
+                                                borderRadius: 4,
+                                                fontSize: 11,
+                                                fontWeight: 600
+                                            }}>
+                                                {a.status.toUpperCase()}
+                                            </span>
+                                        </span>
+                                    </div>
+                                    {a.status === 'confirmed' && (
+                                        <div className="mobile-card-actions">
+                                            <button className="btn-action btn-primary full-width" onClick={() => handleCompleteAppt(a.id)}>Mark Done</button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                            {appointments.length === 0 && <div className="no-data-mobile">No appointments.</div>}
                         </div>
                     </div>
                 )}
@@ -343,50 +474,26 @@ export default function DoctorDashboard({ doctorData, onLogout }) {
                                                 .filter(a => a.appointment_date === date)
                                                 .sort((a, b) => a.appointment_time.localeCompare(b.appointment_time))
                                                 .map(appt => (
-                                                    <div key={appt.id} className="card" style={{
-                                                        padding: 16,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: 16,
+                                                    <div key={appt.id} className="card appt-card" style={{
                                                         borderLeft: appt.is_urgent ? '4px solid #ef4444' : '4px solid #0d9488'
                                                     }}>
-                                                        <div style={{
-                                                            fontSize: 18,
-                                                            fontWeight: 700,
-                                                            color: '#334155',
-                                                            minWidth: 80
-                                                        }}>
+                                                        <div className="appt-time">
                                                             {appt.appointment_time}
                                                         </div>
 
-                                                        <div style={{ flex: 1 }}>
-                                                            <div style={{ fontWeight: 600, fontSize: 16 }}>
+                                                        <div className="appt-details">
+                                                            <div className="appt-patient">
                                                                 {appt.patient_name || 'Patient'}
                                                                 {appt.is_urgent && (
-                                                                    <span style={{
-                                                                        background: '#fee2e2',
-                                                                        color: '#b91c1c',
-                                                                        fontSize: 11,
-                                                                        padding: '2px 6px',
-                                                                        borderRadius: 4,
-                                                                        marginLeft: 8
-                                                                    }}>URGENT</span>
+                                                                    <span className="badge-urgent">URGENT</span>
                                                                 )}
                                                             </div>
-                                                            <div style={{ fontSize: 13, color: '#64748b' }}>
+                                                            <div className="appt-subtext">
                                                                 Confirmation: {appt.confirmation_number}
                                                             </div>
                                                         </div>
 
-                                                        <div style={{
-                                                            background: appt.status === 'confirmed' ? '#dcfce7' : '#f1f5f9',
-                                                            color: appt.status === 'confirmed' ? '#166534' : '#64748b',
-                                                            padding: '4px 12px',
-                                                            borderRadius: 12,
-                                                            fontSize: 12,
-                                                            fontWeight: 600,
-                                                            textTransform: 'uppercase'
-                                                        }}>
+                                                        <div className={`appt-status status-${appt.status}`}>
                                                             {appt.status}
                                                         </div>
                                                     </div>
