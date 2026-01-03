@@ -135,8 +135,8 @@ export default function TriageView({ result, onStartOver, onProceedToChat, onBoo
                     </>
                 ) : (
                     <>
-                        <p>Book a sameday video visit with a primary care provider or chat with our automated guideliness assistant.</p>
-                        <button className="cta-button" onClick={onBookSlot}>Find Available Appointments</button>
+                        <p>Book an appointment with a doctor or chat with our AI assistant for guidance.</p>
+                        <button className="cta-button" onClick={onBookSlot}>Book Appointment with Doctor</button>
 
                         <div style={{ marginTop: 16, borderTop: '1px solid var(--primary-teal)', paddingTop: 16 }}>
                             <p style={{ margin: '0 0 8px 0', fontSize: 14 }}>Need to clarify your symptoms?</p>

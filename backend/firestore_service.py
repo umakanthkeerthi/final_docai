@@ -186,3 +186,142 @@ def save_medical_file(user_id, profile_id, file_data):
         print(f"❌ Error saving medical file: {e}")
         return {"success": False, "error": str(e)}
 
+
+# ============================================
+# APPOINTMENT BOOKING FUNCTIONS
+# ============================================
+
+def save_appointment(appointment_data):
+    """
+    Save appointment booking to Firestore
+    """
+    try:
+        if not db:
+            print("⚠️ Firestore not available, skipping save")
+            return {"success": False, "error": "Firestore not configured"}
+        
+        appointment_id = str(uuid.uuid4())
+        
+        print(f"💾 Saving appointment:")
+        print(f"   ID: {appointment_id}")
+        print(f"   user_id: {appointment_data.get('user_id')}")
+        print(f"   doctor: {appointment_data.get('doctor_name')}")
+        print(f"   date: {appointment_data.get('appointment_date')}")
+        print(f"   time: {appointment_data.get('appointment_time')}")
+        
+        appointment_doc = {
+            "id": appointment_id,
+            "user_id": str(appointment_data.get('user_id')),
+            "profile_id": str(appointment_data.get('profile_id')) if appointment_data.get('profile_id') else None,
+            "doctor_id": appointment_data.get('doctor_id'),
+            "doctor_name": appointment_data.get('doctor_name'),
+            "doctor_specialty": appointment_data.get('doctor_specialty'),
+            "doctor_location": appointment_data.get('doctor_location'),
+            "appointment_date": appointment_data.get('appointment_date'),
+            "appointment_time": appointment_data.get('appointment_time'),
+            "consultation_fee": appointment_data.get('consultation_fee'),
+            "status": appointment_data.get('status', 'confirmed'),
+            "is_urgent": appointment_data.get('is_urgent', False),
+            "confirmation_number": appointment_data.get('confirmation_number'),
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
+        }
+        
+        # Save to Firestore
+        db.collection('appointments').document(appointment_id).set(appointment_doc)
+        
+        print(f"✅ Appointment saved: {appointment_id}")
+        return {"success": True, "id": appointment_id, "data": appointment_doc}
+        
+    except Exception as e:
+        print(f"❌ Error saving appointment: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+def get_user_appointments(user_id, profile_id=None):
+    """
+    Get all appointments for a user
+    """
+    try:
+        if not db:
+            print("⚠️ Firestore not available")
+            return {"success": False, "error": "Firestore not configured"}
+        
+        print(f"📋 Fetching appointments for user: {user_id}, profile: {profile_id}")
+        
+        # Query appointments
+        query = db.collection('appointments').where('user_id', '==', str(user_id))
+        
+        if profile_id:
+            query = query.where('profile_id', '==', str(profile_id))
+        
+        # Get documents
+        docs = query.stream()
+        
+        appointments = []
+        for doc in docs:
+            data = doc.to_dict()
+            appointments.append(data)
+        
+        print(f"✅ Found {len(appointments)} appointments")
+        
+        # Separate into upcoming and past
+        today = datetime.now().date()
+        upcoming = []
+        past = []
+        
+        for apt in appointments:
+            try:
+                apt_date = datetime.fromisoformat(apt['appointment_date']).date()
+                if apt_date >= today and apt['status'] == 'confirmed':
+                    upcoming.append(apt)
+                else:
+                    past.append(apt)
+            except:
+                # If date parsing fails, add to past
+                past.append(apt)
+        
+        # Sort upcoming by date (earliest first)
+        upcoming.sort(key=lambda x: (x['appointment_date'], x['appointment_time']))
+        
+        # Sort past by date (most recent first)
+        past.sort(key=lambda x: (x['appointment_date'], x['appointment_time']), reverse=True)
+        
+        return {
+            "success": True,
+            "upcoming": upcoming,
+            "past": past
+        }
+        
+    except Exception as e:
+        print(f"❌ Error fetching appointments: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+def update_appointment_status(appointment_id, status):
+    """
+    Update appointment status (e.g., cancel, complete)
+    """
+    try:
+        if not db:
+            print("⚠️ Firestore not available")
+            return {"success": False, "error": "Firestore not configured"}
+        
+        print(f"🔄 Updating appointment {appointment_id} to status: {status}")
+        
+        # Update document
+        db.collection('appointments').document(appointment_id).update({
+            'status': status,
+            'updated_at': datetime.now().isoformat()
+        })
+        
+        print(f"✅ Appointment status updated")
+        return {"success": True}
+        
+    except Exception as e:
+        print(f"❌ Error updating appointment: {e}")
+        return {"success": False, "error": str(e)}

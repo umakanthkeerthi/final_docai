@@ -6,7 +6,7 @@ import Layout from './components/Layout'
 import HomeView from './components/HomeView'
 import TriageView from './components/TriageView'
 import ChatView from './components/ChatView'
-import SlotView from './components/SlotView'
+import AppointmentBooking from './components/AppointmentBooking'
 import SummaryView from './components/SummaryView'
 
 import DoctorProfile from './components/DoctorProfile';
@@ -117,6 +117,7 @@ function App() {
           result={triageResult}
           onStartChat={() => handleNavigate('chat')}
           onBookSlot={() => handleNavigate('slot')}
+          onStartOver={() => handleNavigate('home')}
         />
       )}
 
@@ -139,17 +140,17 @@ function App() {
       )}
 
       {view === 'slot' && (
-        <SlotView
-          onConfirm={() => handleNavigate('home')}
-          patientName={currentProfile.name}
+        <AppointmentBooking
+          onBack={() => handleNavigate('home')}
+          triageResult={triageResult}
+          isUrgent={triageResult?.is_emergency}
         />
       )}
 
       {view === 'summary' && (
         <SummaryView
-          sessionId="demo"
-          onClose={() => handleNavigate('home')}
-          patientName={currentProfile.name}
+          onHome={() => handleNavigate('home')}
+          onBook={() => handleNavigate('slot')}
         />
       )}
 

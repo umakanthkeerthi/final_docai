@@ -539,6 +539,151 @@ async def serve_file(filename: str):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"File serve error: {str(e)}")
 
+
+# ============================================
+# APPOINTMENT BOOKING ENDPOINTS
+# ============================================
+
+# Import appointment functions
+from firestore_service import save_appointment, get_user_appointments, update_appointment_status
+import time
+
+# Appointment data models
+class AppointmentCreate(BaseModel):
+    user_id: str
+    profile_id: str = None
+    doctor_id: str
+    doctor_name: str
+    doctor_specialty: str
+    doctor_location: dict
+    appointment_date: str  # ISO format YYYY-MM-DD
+    appointment_time: str  # 24hr format HH:MM
+    consultation_fee: int
+    is_urgent: bool = False
+
+class AppointmentStatusUpdate(BaseModel):
+    status: str  # confirmed, cancelled, completed
+
+@api_router.post("/appointments/book")
+async def book_appointment(appointment: AppointmentCreate):
+    """
+    Book a new appointment
+    """
+    try:
+        print(f"📅 Booking appointment request received")
+        print(f"   Doctor: {appointment.doctor_name}")
+        print(f"   Date: {appointment.appointment_date}")
+        print(f"   Time: {appointment.appointment_time}")
+        print(f"   Urgent: {appointment.is_urgent}")
+        
+        # Generate confirmation number
+        prefix = "URG" if appointment.is_urgent else "CONF"
+        confirmation_number = f"{prefix}-{int(time.time() * 1000) % 100000000}"
+        
+        # Prepare appointment data
+        appointment_data = {
+            'user_id': appointment.user_id,
+            'profile_id': appointment.profile_id,
+            'doctor_id': appointment.doctor_id,
+            'doctor_name': appointment.doctor_name,
+            'doctor_specialty': appointment.doctor_specialty,
+            'doctor_location': appointment.doctor_location,
+            'appointment_date': appointment.appointment_date,
+            'appointment_time': appointment.appointment_time,
+            'consultation_fee': appointment.consultation_fee,
+            'status': 'confirmed',
+            'is_urgent': appointment.is_urgent,
+            'confirmation_number': confirmation_number
+        }
+        
+        # Save to Firestore
+        result = save_appointment(appointment_data)
+        
+        if result.get('success'):
+            print(f"✅ Appointment booked successfully: {confirmation_number}")
+            return {
+                'success': True,
+                'appointment_id': result['id'],
+                'confirmation_number': confirmation_number,
+                **result['data']
+            }
+        else:
+            raise HTTPException(status_code=500, detail=result.get('error', 'Failed to save appointment'))
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error booking appointment: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/appointments/user/{user_id}")
+async def get_appointments(user_id: str, profile_id: str = None):
+    """
+    Get all appointments for a user
+    Query params:
+    - profile_id: Optional, filter by specific profile
+    """
+    try:
+        print(f"📋 Fetching appointments for user: {user_id}")
+        if profile_id:
+            print(f"   Profile: {profile_id}")
+        
+        result = get_user_appointments(user_id, profile_id)
+        
+        if result.get('success'):
+            print(f"✅ Found {len(result['upcoming'])} upcoming, {len(result['past'])} past appointments")
+            return {
+                'success': True,
+                'upcoming': result['upcoming'],
+                'past': result['past']
+            }
+        else:
+            # Return empty arrays if Firestore not available
+            print("⚠️ Firestore not available, returning empty")
+            return {
+                'success': True,
+                'upcoming': [],
+                'past': []
+            }
+            
+    except Exception as e:
+        print(f"❌ Error fetching appointments: {e}")
+        import traceback
+        traceback.print_exc()
+        # Return empty arrays on error (graceful degradation)
+        return {
+            'success': True,
+            'upcoming': [],
+            'past': []
+        }
+
+
+@api_router.put("/appointments/{appointment_id}/status")
+async def update_status(appointment_id: str, status_update: AppointmentStatusUpdate):
+    """
+    Update appointment status (cancel, complete, etc.)
+    """
+    try:
+        print(f"🔄 Updating appointment {appointment_id} to {status_update.status}")
+        
+        result = update_appointment_status(appointment_id, status_update.status)
+        
+        if result.get('success'):
+            print(f"✅ Appointment status updated")
+            return {'success': True, 'message': 'Status updated successfully'}
+        else:
+            raise HTTPException(status_code=500, detail=result.get('error', 'Failed to update status'))
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error updating appointment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Mount the router AFTER all endpoints are defined
 app.include_router(api_router)
 
