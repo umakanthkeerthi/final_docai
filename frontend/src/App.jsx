@@ -184,6 +184,11 @@ function App() {
 
   // 5. MAIN PATIENT DASHBOARD
   const handleNavigate = (newView) => {
+    // If user clicks "Symptom Checker" manually, we should clear any previous initial text
+    // so they can type/speak casually.
+    if (newView === 'symptom-checker') {
+      setInitialSymptom('');
+    }
     setView(newView);
   }
 
