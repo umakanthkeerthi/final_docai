@@ -9,7 +9,7 @@ from typing import List
 from dotenv import load_dotenv
 
 # --- IMPORT SERVICES ---
-from chat_engine import get_medical_response, generate_summary
+from chat_engine import get_medical_response, generate_summary  
 from triage_service import analyze_symptom
 from prescription_analyzer import analyze_prescription
 from firebase_auth_service import signup_user, login_user, add_profile
@@ -17,16 +17,12 @@ from firebase_auth_service import signup_user, login_user, add_profile
 # Fix .env loading to be relative to this script
 current_dir = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(current_dir, ".env")
-load_dotenv(env_path, override=True)
+load_dotenv(env_path)
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-if GROQ_API_KEY:
-    print(f"🚀 Loaded API Key: {GROQ_API_KEY[:4]}...{GROQ_API_KEY[-4:]}")
-else:
-    print("❌ No API Key found!")
 
-# Initialize Groq client
-client = Groq(api_key=GROQ_API_KEY)
+if not GROQ_API_KEY:
+    raise ValueError("GROQ_API_KEY not found in environment variables. Please check your .env file.")
 
 # --- CONFIG & OTHERS ---
 app = FastAPI()
@@ -40,18 +36,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-client = Groq(api_key=GROQ_API_KEY)
+try:
+    client = Groq(api_key=GROQ_API_KEY)
+    print(f"✅ Groq client initialized successfully")
+except Exception as e:
+    print(f"❌ Failed to initialize Groq client: {e}")
+    raise
 
 # --- DATA MODELS ---
 class ChatMessage(BaseModel):
-    model_config = {"extra": "ignore"}  # Ignore extra fields from frontend
     role: str
     content: str
 
 class ChatRequest(BaseModel):
     message: str
     session_id: str
-    target_language: str = "English" # Default to English
     history: List[ChatMessage] = []
 
 class TriageRequest(BaseModel):
@@ -174,7 +173,6 @@ async def send_message(req: MessageSendRequest):
         "id": f"msg_{len(MESSAGES_DB)+1}",
         "sender": "patient",
         "message": req.message,
-        "patientId": req.patientId, # Store ID for filtering
         "timestamp": int(time.time() * 1000)
     }
     MESSAGES_DB.append(user_msg_entry)
@@ -182,34 +180,22 @@ async def send_message(req: MessageSendRequest):
     # 2. Generate AI Response (RAG)
     try:
         # Convert DB history to ChatFormat for the Engine
-        # CRITICAL FIX: Only include messages for THIS patient
         chat_history = []
         for m in MESSAGES_DB:
-            if m.get("patientId") == req.patientId:
-                role = "user" if m["sender"] == "patient" else "assistant"
-                chat_history.append({"role": role, "content": m["message"]})
+            role = "user" if m["sender"] == "patient" else "assistant"
+            chat_history.append({"role": role, "content": m["message"]})
             
-        # Call RAG (Note: we pass req.patientId as session_id)
-        # We can detect language from the input if needed, defaulting to English for this endpoint
-        response_data = get_medical_response(req.message, req.patientId, chat_history, target_language="English")
-        
+        response_data = get_medical_response(req.message, req.patientId, chat_history)
         ai_text = response_data.get("answer", "I apologize, I could not generate a response.") if isinstance(response_data, dict) else str(response_data)
-        
-        # If there's a structure record (Emergency/Final), we could process it here, 
-        # but for the chat view we mainly need the text reply.
-        
     except Exception as e:
         ai_text = f"I apologize, I encountered a technical error: {str(e)}"
-        import traceback
-        traceback.print_exc()
 
     # 3. Save AI Message
     ai_msg_entry = {
         "id": f"msg_{len(MESSAGES_DB)+1}",
         "sender": "doctor",
         "message": ai_text,
-        "patientId": req.patientId, # Store ID
-        "timestamp": int(time.time() * 1000) + 100 
+        "timestamp": int(time.time() * 1000) + 100 # slight delay
     }
     MESSAGES_DB.append(ai_msg_entry)
 
@@ -229,46 +215,6 @@ async def check_emergency_endpoint(request: TriageRequest):
     return analyze_symptom(request.text)
 
 
-@api_router.post("/translate_text")
-async def translate_text(request: ChatRequest):
-    """
-    Detects language and translates to English for manual text inputs.
-    """
-    try:
-        raw_text = request.message
-        
-        repair_prompt = f"""
-        User Input: "{raw_text}"
-        
-        TASK:
-        1. DETECT the language.
-        2. TRANSLATE strictly to English for a medical database search.
-        3. If it is ALREADY English, just copy it.
-        
-        Return ONLY valid JSON:
-        {{
-            "english_text": "...",   
-            "detected_language": "..." // e.g. "Hindi", "English"
-        }}
-        """
-
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile", 
-            messages=[
-                {"role": "system", "content": "You are a universal translator. Output JSON only."},
-                {"role": "user", "content": repair_prompt}
-            ],
-            response_format={"type": "json_object"},
-            temperature=0
-        )
-        
-        return json.loads(completion.choices[0].message.content)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print(f"Translation error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @api_router.post("/chat_with_guidelines")
 async def chat_with_guidelines(request: ChatRequest):
     """
@@ -281,13 +227,12 @@ async def chat_with_guidelines(request: ChatRequest):
         
         # 2. Call the reasoning engine with the new message and full context
         # This allows the bot to follow the 'Localization Shortcut' from NHSRC Page 11
-        response = get_medical_response(request.message, request.session_id, chat_history=history_data, target_language=request.target_language)
+        response = get_medical_response(request.message, request.session_id, chat_history=history_data)
         
         return {"reply": response}
     except Exception as e:
         import traceback
         traceback.print_exc()
-        print(f"Chat error: {str(e)}")
         # Log the specific error for debugging during your demo
         raise HTTPException(status_code=500, detail=f"RAG Reasoning Error: {str(e)}")
 
@@ -299,16 +244,24 @@ class SummaryRequest(BaseModel):
 @api_router.post("/generate_summary")
 async def get_summary(request: Request):
     """
-    Generates a formal medical summary for the end of the consultation.
+    Generates a formal medical summary for the end of the consultation and saves it.
     """
     try:
         data = await request.json()
         session_id = data.get("session_id", "default")
-        target_language = data.get("target_language", "English")
         
-        summary_json = generate_summary(session_id, target_language)
+        summary_text = generate_summary(session_id)
         
-        return summary_json # Return the full JSON object directly
+        # Save text output to temp file
+        # Ensure 'backend' directory exists if not already
+        os.makedirs("backend", exist_ok=True)
+        try:
+            with open("backend/temp_summary.json", "w") as f:
+                json.dump({"summary": summary_text}, f, indent=2) # Wrap in dict for consistency
+        except Exception as e:
+            print(f"Error saving temp summary: {e}")
+            
+        return {"summary": summary_text} # Return as a dictionary
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -338,17 +291,10 @@ async def process_audio(audio: UploadFile = File(...)):
         repair_prompt = f"""
         The following text is a messy, phonetic transcription of a patient speaking.
         Input Text: "{raw_text}"
-        
-        TASK:
-        1. Clean up the text (fix phonetic errors, grammar).
-        2. Detect the language (e.g., "Telugu", "Hindi", "English").
-        3. Translate to English for medical processing.
-        
         Return ONLY valid JSON:
         {{
             "repaired_text": "...",
-            "english_text": "...",
-            "detected_language": "..."
+            "english_text": "..."
         }}
         """
 

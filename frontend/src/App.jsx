@@ -21,7 +21,6 @@ import AuthView from './components/AuthView';
 import ProfileSelector from './components/ProfileSelector';
 import DoctorDashboard from './components/DoctorDashboard';
 import DoctorLogin from './components/DoctorLogin';
-import PatientAssistant from './components/PatientAssistant';
 
 function App() {
   // --- FIREBASE AUTH ---
@@ -39,7 +38,6 @@ function App() {
   const [triageResult, setTriageResult] = useState(null);
   const [initialSymptom, setInitialSymptom] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [aiSummary, setAiSummary] = useState(null);
 
   // --- HANDLERS ---
   const handleLoginSuccess = (userCredential) => {
@@ -61,32 +59,27 @@ function App() {
     setInitialSymptom(symptom);
 
     try {
-      // 1. Call Triage API
-      const response = await fetch(`${API_BASE}/api/analyze_symptom`, {
+      const response = await fetch(`${API_BASE}/triage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: symptom })
+        body: JSON.stringify({ symptoms: symptom })
       });
-
-      if (!response.ok) throw new Error("Triage failed");
 
       const data = await response.json();
       console.log('TRIAGE RESULT:', data);
       setTriageResult(data);
 
-      // 2. Route based on emergency status
-      if (data.is_emergency === true || data.is_emergency === 'true' || data.emergency_level === 'RED') {
+      // Route based on emergency status
+      if (data.is_emergency === true || data.is_emergency === 'true' || data.is_emergency === 'True') {
         // EMERGENCY: Go to triage view (shows urgent booking)
         setView('triage');
       } else {
-        // NON-EMERGENCY: Go to AI Assistant (Chatbot) for detailed home care
-        // Logic: Triage first, then chat if safe.
-        setView('ai-assistant');
+        // NON-EMERGENCY: Go to chat view
+        setView('chat');
       }
     } catch (error) {
       console.error('Triage error:', error);
-      // Fallback: If triage fails, go to chat anyway so user isn't stuck
-      setView('ai-assistant');
+      alert('Failed to analyze symptoms. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }
@@ -95,26 +88,6 @@ function App() {
   // Doctor login handler
   const handleDoctorLogin = (doctor) => {
     setDoctorData(doctor);
-  };
-
-  // --- NEW: AI ASSISTANT HANDLER ---
-  const handleAiConsultationComplete = (summaryData) => {
-    console.log("AI Consultation Complete:", summaryData);
-
-    // 1. Save full summary for display
-    setAiSummary(summaryData);
-
-    // 2. Transform into Triage Format for Booking Engine
-    const compatTriage = {
-      is_emergency: summaryData.triage.emergency_level === 'RED',
-      matched_condition: summaryData.clinical_summary?.presenting_symptoms?.join(', ') || "Condition from AI",
-      reason: summaryData.triage.recommended_action || "Recommended by AI Assistant"
-    };
-
-    setTriageResult(compatTriage);
-
-    // 3. Navigate to Summary View instead of direct booking
-    setView('summary');
   };
 
   // Doctor logout handler
@@ -184,11 +157,6 @@ function App() {
 
   // 5. MAIN PATIENT DASHBOARD
   const handleNavigate = (newView) => {
-    // If user clicks "Symptom Checker" manually, we should clear any previous initial text
-    // so they can type/speak casually.
-    if (newView === 'symptom-checker') {
-      setInitialSymptom('');
-    }
     setView(newView);
   }
 
@@ -242,8 +210,7 @@ function App() {
       {view === 'summary' && (
         <SummaryView
           onHome={() => handleNavigate('home')}
-          onBook={() => setView('slot')}
-          initialSummary={aiSummary}
+          onBook={() => handleNavigate('slot')}
         />
       )}
 
@@ -271,23 +238,10 @@ function App() {
           selectedProfile={currentProfile}
         />
       )}
-
-      {/* NEW: AI Patient Assistant (Replaces old Symptom Checker) */}
-      {(view === 'symptom-checker' || view === 'ai-assistant') && (
-        <PatientAssistant
-          initialMessage={initialSymptom}
-          onConsultationComplete={handleAiConsultationComplete}
-          onEmergency={(emergencyData) => {
-            // Create triage result for emergency
-            setTriageResult({
-              is_emergency: true,
-              matched_condition: emergencyData.clinical_summary?.presenting_symptoms?.join(', ') || "Emergency Detected",
-              action: emergencyData.triage?.recommended_action || "Immediate Medical Attention Required",
-              reason: "Critical symptoms detected during AI consultation."
-            });
-            // Navigate to triage/emergency page
-            setView('triage');
-          }}
+      {view === 'symptom-checker' && (
+        <SymptomCheckerView
+          onBack={() => handleNavigate('home')}
+          onBookAppointment={() => handleNavigate('slot')}
         />
       )}
     </Layout>

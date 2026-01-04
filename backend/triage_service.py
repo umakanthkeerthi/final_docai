@@ -6,11 +6,17 @@ from correlation_analyzer import analyze_symptom_correlation
 import re
 import chromadb
 
-# Load env from current directory
-load_dotenv()
+# Load env from current directory with explicit path
+current_dir_for_env = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(current_dir_for_env, ".env")
+load_dotenv(env_path)
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-client = Groq(api_key=GROQ_API_KEY)
+if not GROQ_API_KEY:
+    print("⚠️ [Triage] GROQ_API_KEY not found in environment")
+    client = None
+else:
+    client = Groq(api_key=GROQ_API_KEY)
 
 # Initialize ChromaDB for RAG
 current_dir = os.path.dirname(os.path.abspath(__file__))

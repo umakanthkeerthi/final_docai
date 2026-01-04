@@ -11,9 +11,20 @@ from PIL import Image
 import pytesseract
 import io
 import re
+from dotenv import load_dotenv
+
+# Load environment variables
+current_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(current_dir, ".env")
+load_dotenv(env_path)
 
 # Initialize Groq client
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    print("⚠️ [Rx Analyzer] GROQ_API_KEY not found in environment")
+    client = None
+else:
+    client = Groq(api_key=GROQ_API_KEY)
 
 # Configure Tesseract path (Windows)
 # User will need to install Tesseract separately
