@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { API_BASE } from '../config';
 
-export default function ChatView({ initialMessage, onEndSession, patientName, onEmergency }) {
+export default function ChatView({ initialMessage, onEndSession, patientName, patientId, onEmergency }) {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -12,8 +12,13 @@ export default function ChatView({ initialMessage, onEndSession, patientName, on
     const audioChunks = useRef([]);
 
     // --- MOUNT LOGIC ---
+    // Use ref to prevent double-fire in Strict Mode
+    const isFetchingRef = useRef(false);
+
     useEffect(() => {
-        if (initialMessage && messages.length === 0) {
+        if (initialMessage && messages.length === 0 && !isFetchingRef.current) {
+            isFetchingRef.current = true;
+
             // Add initial user message
             const userMsg = { id: 1, sender: 'patient', message: initialMessage, timestamp: Date.now() };
             // Add placeholder system message
@@ -39,7 +44,7 @@ export default function ChatView({ initialMessage, onEndSession, patientName, on
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    patientId: 'guest',
+                    patientId: patientId || ('guest_' + Date.now()),
                     doctorId: 'ai_doc',
                     patientName: patientName || 'Guest',
                     doctorName: 'AI',

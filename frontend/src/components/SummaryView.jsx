@@ -1,12 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { API_BASE } from '../config';
 
-export default function SummaryView({ onHome, onBook }) {
+export default function SummaryView({ onHome, onBook, initialSummary }) {
     const [summary, setSummary] = useState("");
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Fetch summary on mount
+        if (initialSummary) {
+            // Use provided summary data (format it nicely)
+            let formattedSummary = "";
+
+            // If it's the structured record from PatientAssistant
+            if (initialSummary.clinical_summary) {
+                formattedSummary += `**Presenting Symptoms:** ${initialSummary.clinical_summary.presenting_symptoms.join(', ')}\n`;
+                formattedSummary += `**Duration:** ${initialSummary.clinical_summary.duration}\n\n`;
+                formattedSummary += `**History:** ${initialSummary.clinical_summary.history_of_illness}\n\n`;
+
+                if (initialSummary.display_text) {
+                    formattedSummary = initialSummary.display_text;
+                }
+            } else {
+                formattedSummary = JSON.stringify(initialSummary, null, 2);
+            }
+
+            setSummary(formattedSummary);
+            setIsLoading(false);
+            return;
+        }
+
+        // Fallback: Fetch summary if not provided
         fetch(`${API_BASE}/generate_summary`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

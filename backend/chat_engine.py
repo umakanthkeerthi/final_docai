@@ -9,17 +9,65 @@ from session_manager import get_session
 # 1. Initialization
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # Loading .env from current directory (backend)
-load_dotenv(os.path.join(current_dir, ".env"))
+load_dotenv(os.path.join(current_dir, ".env"), override=True)
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # 2. Database Connection
-db_path = os.path.join(current_dir, "medical_db")
+db_path = os.path.join(current_dir, "medical_db_v2")
 db_client = chromadb.PersistentClient(path=db_path)
 
 # Collections
 golden_coll = db_client.get_or_create_collection(name="golden_collection")
 reference_coll = db_client.get_or_create_collection(name="reference_collection")
+
+# --- TRANSLATION FUNCTION ---
+def translate_to_patient_language(english_text: str, target_language: str) -> str:
+    """
+    Translates English medical response to patient's native language.
+    This ensures clean separation: RAG works in English, output is translated.
+    
+    Args:
+        english_text: The medical response in English
+        target_language: Target language (e.g., "Telugu", "Hindi", "Tamil")
+    
+    Returns:
+        Translated text in target language
+    """
+    # If target is English, return as-is
+    if target_language.lower() == "english":
+        return english_text
+    
+    translation_prompt = f"""
+    You are a medical translator. Translate the following medical advice from English to {target_language}.
+    
+    RULES:
+    1. Translate ONLY the text, maintaining medical accuracy.
+    2. Keep technical medical terms and drug names in English (e.g., Paracetamol, ORS).
+    3. Keep page citations like (Page 13) as-is.
+    4. Do NOT add any English explanation after the translation.
+    5. Output ONLY the translated text, nothing else.
+    
+    English Text:
+    {english_text}
+    
+    {target_language} Translation:
+    """
+    
+    try:
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": f"You are a professional medical translator. Translate to {target_language} only."},
+                {"role": "user", "content": translation_prompt}
+            ],
+            temperature=0.3,
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"Translation Error: {e}")
+        # Fallback: return English if translation fails
+        return english_text
 
 def extract_medical_status(user_message, history):
     """
@@ -71,7 +119,7 @@ def extract_medical_status(user_message, history):
                 {"role": "system", "content": "You are a specialized medical triagist. Output JSON only."},
                 {"role": "user", "content": prompt}
             ],
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             response_format={"type": "json_object"},
             temperature=0
         )
@@ -120,7 +168,7 @@ def identify_data_gaps(fact_block, guideline_context):
                 {"role": "system", "content": "You are a smart triage logic engine. Output JSON only."},
                 {"role": "user", "content": prompt}
             ],
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             response_format={"type": "json_object"},
             temperature=0
         )
@@ -171,32 +219,137 @@ def identify_data_gaps(fact_block, guideline_context):
         print(f"Gap Analysis Error: {e}")
         return []
 
+# --- EMERGENCY LOGIC ---
+def check_emergency(user_text: str) -> Optional[dict]:
+    """
+    Fast-path check against emergency_rules.json.
+    Returns the specific emergency action if a match is found, else None.
+    """
+    try:
+        rules_path = os.path.join(current_dir, "emergency_rules.json")
+        if not os.path.exists(rules_path):
+            return None
+            
+        with open(rules_path, "r", encoding="utf-8") as f:
+            rules_data = json.load(f)
+            
+        rules_context = json.dumps(rules_data, indent=2)
+        
+        prompt = f"""
+        ACT AS AN EMERGENCY TRIAGE DOCTOR.
+        
+        USER INPUT: "{user_text}"
+        
+        EMERGENCY RULES:
+        {rules_context}
+        
+        TASK:
+        1. Compare the User Input against the "symptoms" in the Emergency Rules.
+        2. If the input matches ANY critical symptom (e.g. Chest pain, Difficulty breathing, Seizures, Unconscious), output the matching rule.
+        3. Be STRICT. If it is just a "headache" (and not Thunderclap), do NOT match.
+        4. If NO critical match, return NULL.
+        
+        RETURN JSON ONLY:
+        {{
+            "is_emergency": true/false,
+            "matched_category": "...",
+            "action_required": "...",
+            "reasoning": "..."
+        }}
+        """
+
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "You are a Critical Care Triage Bot. Output JSON only."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0
+        )
+        
+        result = json.loads(completion.choices[0].message.content)
+        if result.get("is_emergency"):
+            return result
+        return None
+        
+    except Exception as e:
+        print(f"Emergency Check Error: {e}")
+        return None
+
 # --- CORE RAG LOGIC ---
 
-def get_medical_response(user_query: str, session_id: str, chat_history: List[dict] = []):
+def get_medical_response(user_query: str, session_id: str, chat_history: List[dict] = [], target_language: str = "English"):
     """
     Orchestrates the 2-Hop RAG flow (Diagnosis -> Guideline):
-    """
-    # --- SAFETY CHECK ---
-    text_lower = user_query.lower()
-    critical_keywords = [
-        "chest pain", "heart attack", "can't breathe", "breathless", 
-        "stroke", "numbness", "unconscious", "head injury", "bleeding"
-    ]
-    
-    if any(kw in text_lower for kw in critical_keywords):
-        return {
-            "answer": "🚨 **EMERGENCY DETECTED** 🚨\n\nI detected symptoms that require IMMEDIATE medical attention.\n\nPlease go to the **Emergency Triage** view or call emergency services immediately.",
-            "sources": [],
-            "is_final": True
-        }
-    """
     1. Retrieve Patient State
     2. Update Memory
     3. HOP 1: Diagnostic Search (Find potential causes)
     4. HOP 2: Guideline Search (Find filtered patient advice)
     5. Generate Response with strict citations
     """
+    
+    # STEP 0: EMERGENCY INTERCEPTOR
+    # We check the raw query immediately.
+    emergency_status = check_emergency(user_query)
+    if emergency_status:
+        # SHORT CIRCUIT: Return emergency advice immediately without RAG
+        action = emergency_status['action_required']
+        category = emergency_status['matched_category']
+        reason = emergency_status['reasoning']
+        
+        # We format this as a high-alert response
+        emergency_msg = f"""
+        🚨 **EMERGENCY DETECTED** 🚨
+        
+        **Condition**: {category}
+        **Reason**: {reason}
+        
+        **IMMEDIATE ACTION REQUIRED**:
+        {action}
+        
+        (This is an automated triage response. Please act immediately.)
+        """
+        
+        # If target language is NOT English, we must translate this emergency alert too
+        if target_language.lower() != "english":
+             # Quick translation for safety
+             trans_completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": "You are a crisis translator."},
+                    {"role": "user", "content": f"Translate this emergency alert to {target_language} accurately:\n\n{emergency_msg}"}
+                ]
+             )
+             emergency_msg = trans_completion.choices[0].message.content
+
+        # Construct Structured Emergency Record
+        import datetime
+        structured_record = {
+            "meta_data": {
+                "session_id": session_id,
+                "timestamp": datetime.datetime.now().isoformat()
+            },
+            "triage": {
+                "emergency_level": "RED",
+                "priority_score": 10,
+                "recommended_action": action
+            },
+            "clinical_summary": {
+                "presenting_symptoms": [category],
+                "duration": "Acute/Unknown",
+                "history_of_illness": f"Emergency Detected: {category}. Reason: {reason}"
+            },
+            "display_text": emergency_msg
+        }
+
+        return {
+            "answer": emergency_msg,
+            "sources": [{"page": "TRIAGE", "content": "Emergency Protocol", "type": "critical"}],
+            "is_final": True,
+            "structured_record": structured_record
+        }
+
     session = get_session(session_id)
     new_facts = extract_medical_status(user_query, chat_history)
     session.merge_snapshot(new_facts)
@@ -284,6 +437,7 @@ def get_medical_response(user_query: str, session_id: str, chat_history: List[di
         """
 
     # --- GENERATION ---
+    # NOTE: We now generate in English ONLY, then translate separately
     system_instruction = f"""
     You are an NHSRC Health Assistant.
     
@@ -299,29 +453,24 @@ def get_medical_response(user_query: str, session_id: str, chat_history: List[di
     {guideline_context}
     
     INSTRUCTIONS:
-    1. ANALYZE the Patient State.
+    1. ANALYZE the Patient State in ENGLISH.
     2. USE "Approved Patient Guidelines" for advice.
-    3. USE "Medical Context" (Diagnostic) to explain symptoms or "why" a condition matches, if specific guidelines are missing.
+    3. EXPLAIN symptoms using "Medical Context" if needed.
     4. CITATIONS: You MUST cite the page number. Format: (Page X).
-    4. PROHIBITED: Do not prescribe drugs or dosages. If a guideline mentions drugs, say "The guidelines suggest consulting a doctor for medication."
-    5. NEGATIVE CONSTRAINTS: Do NOT ask about "Topics to Skip".
-    6. INTERACTION: Be empathetic. Ask 1-2 clarifying questions if needed.
+    5. INTERACTION: Be empathetic.
+    6. LANGUAGE: Respond in ENGLISH only. Your response will be translated later.
     
     {gap_instruction}
     
-    If gaps are present, prioritize ASKING. 
+    If gaps are present, prioritized ASKING. 
     If gaps are empty:
-    1. Provide the "Home Care Advice" from the Guidelines.
-    2. Do NOT generate a "Patient Case Summary" or "Summary Recommendation" section. 
-    3. END your response with this EXACT phrase on a new line: "I have sufficient information. Please click 'End & Summarize' to get your formal report."
-    
-    If the answer is not in the guidelines, state that clearly.
+    1. Provide the "Home Care Advice".
     """
 
     messages_payload = [{"role": "system", "content": system_instruction}]
     for m in chat_history[-6:]:
         messages_payload.append({"role": m["role"], "content": m["content"]})
-    messages_payload.append({"role": "user", "content": f"User Query: {user_query}"})
+    messages_payload.append({"role": "user", "content": f"User Query: {user_query} (Respond in {target_language})"})
 
     
     # 3. N-Turn Nudge (Implicit Trigger)
@@ -332,13 +481,50 @@ def get_medical_response(user_query: str, session_id: str, chat_history: List[di
     try:
         chat_completion = client.chat.completions.create(
             messages=messages_payload,
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
             temperature=0.1,
         )
+        answer = chat_completion.choices[0].message.content
+        
+        # --- LOGIC-FIRST FIX ---
+        # Only suggest clicking the button if the LOGIC (missing_gaps) says we are truly done.
+        # This prevents the "Split-Brain" bug where AI says "Click button" but button is hidden.
+        if not missing_gaps:
+             footer = "\n\n(I have sufficient information. Please click 'End & Summarize' to get your formal report.)"
+             answer += footer
+        
+        # --- TRANSLATE TO PATIENT'S LANGUAGE ---
+        # The answer is currently in English. Now translate it to target language.
+        translated_answer = translate_to_patient_language(answer, target_language)
+             
+        # --- EMERGENCY INTERCEPTOR (Level Red JSON) ---
+        # If emergency was detected, we must return the JSON immediately.
+        structured_record = None
+        if emergency_status:
+            import datetime
+            structured_record = {
+                "meta_data": {
+                    "session_id": session_id,
+                    "timestamp": datetime.datetime.now().isoformat()
+                },
+                "triage": {
+                    "emergency_level": "RED",
+                    "priority_score": 10,
+                    "recommended_action": emergency_status['action_required']
+                },
+                "clinical_summary": {
+                    "presenting_symptoms": state.get('confirmed_symptoms', []),
+                    "duration": state.get('duration', 'Unknown'),
+                    "history_of_illness": f"Emergency Detected: {emergency_status['condition']}."
+                },
+                "display_text": f"## 🚨 EMERGENCY DETECTED\n\n**Condition:** {emergency_status['condition']}\n\n**Action:** {emergency_status['action_required']}"
+            }
+
         return {
-            "answer": chat_completion.choices[0].message.content,
+            "answer": translated_answer,  # Return translated answer instead of English
             "sources": used_sources,
-            "is_final": True if not missing_gaps else False
+            "is_final": True if not missing_gaps else False,
+            "structured_record": structured_record 
         }
     except Exception as e:
         import traceback
@@ -354,9 +540,10 @@ def get_medical_response(user_query: str, session_id: str, chat_history: List[di
             "is_final": False
         }
 
-def generate_summary(session_id: str):
+def generate_summary(session_id: str, target_language: str = "English"):
     """
     Generates a formal medical summary, guidelines, and disposition.
+    Translates the 'display_text' to target_language, but keeps JSON keys/enums in English.
     """
     session = get_session(session_id)
     state = session.to_dict()
@@ -367,6 +554,7 @@ def generate_summary(session_id: str):
     DENIED SYMPTOMS: {', '.join(state.get('denied_symptoms', []))}
     DURATION: {state.get('duration', 'Unknown')}
     MEDICATIONS: {state.get('medications_taken', 'None')}
+    TARGET DISPLAY LANGUAGE: {target_language}
     """
     
     prompt = f"""
@@ -376,38 +564,56 @@ def generate_summary(session_id: str):
     {fact_block}
     
     TASK:
-    Generate a formal "Patient Case Summary" for the user.
+    Generate a STRUCTURED JSON Patient Case Record.
     
-    OUTPUT FORMAT (Markdown):
-    # 📋 Patient Case Summary
+    CRITICAL INSTRUCTIONS:
+    1. **LANGUAGE**: The "display_text" content MUST be written in **{target_language}**.
+    2. **JSON STRUCTURE**: The Keys (e.g. "triage") and Enums ("RED", "YELLOW") must remain in **ENGLISH**.
+    3. **CONTENT**: You MUST include a "Home Care Guidelines" section in the display text.
     
-    **1. Clinical Assessment**
-    *   **Identified Symptoms:** [List confirmed symptoms]
-    *   **Duration:** [Duration]
-    *   **Current Status:** [Brief professional summary of the situation]
-
-    **2. Home Care Guidelines (NHSRC)**
-    *   [Provide 3-4 key bullet points of SAFE home advice based on the symptoms. Be specific.]
-
-    **3. Doctor Consultation Advice**
-    *   [CLEAR Verdict: "Consult Immediately", "Consult if Worsens", or "Home Care Sufficient"]
-    *   [Explain WHY briefly]
+    You must assess the "Emergency Level" based on NHSRC Guidelines:
+    - RED: Critical/Life-Threatening.
+    - YELLOW: Needs Consultation.
+    - GREEN: Home Care / Routine.
     
-    TONE: Professional, Reassuring, Clear.
+    OUTPUT FORMAT (JSON ONLY):
+    {{
+      "meta_data": {{
+        "session_id": "{session_id}",
+        "timestamp": "ISO_DATE_HERE"
+      }},
+      "triage": {{
+        "emergency_level": "RED | YELLOW | GREEN",
+        "priority_score": 1-10,
+        "recommended_action": "Consult Immediately | Schedule Appointment | Home Care"
+      }},
+      "clinical_summary": {{
+        "presenting_symptoms": ["List confirmed symptoms..."],
+        "duration": "{state.get('duration', 'Unknown')}",
+        "history_of_illness": "Brief narrative of the condition..."
+      }},
+      "display_text": "# 📋 Patient Case Summary (In {target_language})\n\n**1. Clinical Assessment**\n* [Translate assessment to {target_language}]\n\n**2. Home Care Guidelines**\n* [Provide 3-4 specific NHSRC guidelines in {target_language}]\n\n**3. Doctor Consultation Advice**\n* [Translate advice to {target_language}]"
+    }}
     """
     
     try:
         completion = client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "You are a specialized medical summarizer."},
+                {"role": "system", "content": "You are a specialized medical summarizer. Output JSON only."},
                 {"role": "user", "content": prompt}
             ],
-            model="llama-3.1-8b-instant",
+            model="llama-3.3-70b-versatile",
+            response_format={"type": "json_object"},
             temperature=0.2
         )
-        return completion.choices[0].message.content
+        return json.loads(completion.choices[0].message.content)
     except Exception as e:
-        return f"Could not generate summary: {str(e)}"
+        # Fallback if JSON fails, return a partial object so frontend doesn't crash
+        return {
+            "meta_data": {"session_id": session_id},
+            "triage": {"emergency_level": "UNKNOWN"},
+            "display_text": f"Could not generate structured summary. Error: {str(e)}"
+        }
 
 # Test
 if __name__ == "__main__":
