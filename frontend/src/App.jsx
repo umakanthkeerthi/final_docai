@@ -277,6 +277,17 @@ function App() {
         <PatientAssistant
           initialMessage={initialSymptom}
           onConsultationComplete={handleAiConsultationComplete}
+          onEmergency={(emergencyData) => {
+            // Create triage result for emergency
+            setTriageResult({
+              is_emergency: true,
+              matched_condition: emergencyData.clinical_summary?.presenting_symptoms?.join(', ') || "Emergency Detected",
+              action: emergencyData.triage?.recommended_action || "Immediate Medical Attention Required",
+              reason: "Critical symptoms detected during AI consultation."
+            });
+            // Navigate to triage/emergency page
+            setView('triage');
+          }}
         />
       )}
     </Layout>

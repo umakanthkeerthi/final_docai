@@ -3,7 +3,7 @@ import { Mic, Send, Square, Check, Loader2, FileText } from 'lucide-react';
 
 const API_BASE = "http://localhost:8002";
 
-const PatientAssistant = ({ onConsultationComplete, initialMessage }) => {
+const PatientAssistant = ({ onConsultationComplete, initialMessage, onEmergency }) => {
     const [messages, setMessages] = useState([
         { id: 1, sender: 'bot', text: "Namaste! Speak in your language. I will listen to your symptoms and provide NHSRC medical guidelines." }
     ]);
@@ -202,8 +202,18 @@ const PatientAssistant = ({ onConsultationComplete, initialMessage }) => {
                 isFinal: reply.is_final
             }]);
 
+            // Check for emergency and auto-navigate
             if (reply.structured_record) {
-                setIsEmergencyLocked(true);
+                const emergencyLevel = reply.structured_record.triage?.emergency_level;
+                if (emergencyLevel === 'RED' && onEmergency) {
+                    setIsEmergencyLocked(true);
+                    // Give user 2 seconds to see the emergency message before navigating
+                    setTimeout(() => {
+                        onEmergency(reply.structured_record);
+                    }, 2000);
+                } else {
+                    setIsEmergencyLocked(true);
+                }
             }
 
         } catch (error) {
